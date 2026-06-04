@@ -30,9 +30,10 @@
 <script setup>
 // Liste centralisée du menu (facile à modifier)
 const menuItems = [
-  { path: '/',          icon: '🏠', label: 'Accueil',         exact: true  },
-  { path: '/computers', icon: '💻', label: 'Ordinateurs',     exact: false },
-  { path: '/reset',     icon: '🗑️', label: 'Réinitialisation', exact: false },
+  { path: '/',                 icon: '🏠', label: 'Accueil',             exact: true  },
+  { path: '/computers',        icon: '💻', label: 'Ordinateurs (GLPI)',  exact: false },
+  { path: '/local-computers',  icon: '🗂️', label: 'Mes PC locaux',       exact: false },
+  { path: '/reset',            icon: '🗑️', label: 'Réinitialisation',    exact: false },
 ]
 </script>
 

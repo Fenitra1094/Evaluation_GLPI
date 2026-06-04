@@ -21,6 +21,12 @@ const router = createRouter({
       component: () => import('@/views/ResetView.vue'),
       meta: { title: 'Réinitialisation' },
     },
+    {
+      path: '/local-computers',
+      name: 'local-computers',
+      component: () => import('@/views/LocalComputersView.vue'),
+      meta: { title: 'Mes ordinateurs locaux' },
+    },
   ],
 })
 
