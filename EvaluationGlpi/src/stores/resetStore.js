@@ -15,7 +15,7 @@ const PROTECTED_RESOURCES = new Set([
   'Profile',
   'ProfileRight',
   'Profile_User',
-  'Group',
+ // 'Group',
   'Group_User',
   'UserEmail',
 
