@@ -5,13 +5,21 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/computers',
+      name: 'home',
+      component: () => import('@/views/HomeView.vue'),
+      meta: { title: 'Accueil' },
     },
     {
       path: '/computers',
       name: 'computers',
       component: () => import('@/views/ComputersView.vue'),
       meta: { title: 'Liste des Ordinateurs' },
+    },
+    {
+      path: '/reset',
+      name: 'reset',
+      component: () => import('@/views/ResetView.vue'),
+      meta: { title: 'Réinitialisation' },
     },
   ],
 })

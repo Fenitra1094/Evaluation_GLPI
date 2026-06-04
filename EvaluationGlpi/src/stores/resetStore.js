@@ -2,44 +2,71 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import GlpiClient from '@/api/glpiClient'
 
-// Liste fixe des ressources réinitialisables
-export const AVAILABLE_RESOURCES = [
-  { key: 'Computer',          label: 'Ordinateurs',          category: 'Parc' },
-  { key: 'Monitor',           label: 'Écrans',               category: 'Parc' },
-  { key: 'NetworkEquipment',  label: 'Matériel réseau',      category: 'Parc' },
-  { key: 'Peripheral',        label: 'Périphériques',        category: 'Parc' },
-  { key: 'Phone',             label: 'Téléphones',           category: 'Parc' },
-  { key: 'Printer',           label: 'Imprimantes',          category: 'Parc' },
-  { key: 'Software',          label: 'Logiciels',            category: 'Parc' },
-  { key: 'SoftwareLicense',   label: 'Licences logicielles', category: 'Parc' },
-  { key: 'Cartridge',         label: 'Cartouches',           category: 'Parc' },
-  { key: 'Consumable',        label: 'Consommables',         category: 'Parc' },
-  { key: 'Line',              label: 'Lignes téléphoniques', category: 'Parc' },
+// =========================================================
+// WHITELIST DE PROTECTION
+// =========================================================
+// Ces ressources ne seront JAMAIS supprimées, même par
+// l'action "Tout réinitialiser". Elles sont critiques au
+// fonctionnement de GLPI (authentification, droits, config).
+// =========================================================
+const PROTECTED_RESOURCES = new Set([
+  // Utilisateurs et droits
+  'User',
+  'Profile',
+  'ProfileRight',
+  'Profile_User',
+  'Group',
+  'Group_User',
+  'UserEmail',
 
-  { key: 'Ticket',            label: 'Tickets',              category: 'Assistance' },
-  { key: 'Problem',           label: 'Problèmes',            category: 'Assistance' },
-  { key: 'Change',            label: 'Changements',          category: 'Assistance' },
+  // Entités et configuration
+  'Entity',
+  'Config',
+  'DisplayPreference',
+  'State',
 
-  { key: 'Budget',            label: 'Budgets',              category: 'Gestion' },
-  { key: 'Supplier',          label: 'Fournisseurs',         category: 'Gestion' },
-  { key: 'Contact',           label: 'Contacts',             category: 'Gestion' },
-  { key: 'Contract',          label: 'Contrats',             category: 'Gestion' },
-  { key: 'Document',          label: 'Documents',            category: 'Gestion' },
+  // API et sessions
+  'APIClient',
+  'Session',
+  'Log',
 
-  { key: 'Reminder',          label: 'Notes',                category: 'Outils' },
-  { key: 'RSSFeed',           label: 'Flux RSS',             category: 'Outils' },
-  { key: 'KnowbaseItem',      label: 'Base de connaissance', category: 'Outils' },
-  { key: 'Project',           label: 'Projets',              category: 'Outils' },
-]
+  // Authentification externe
+  'AuthLDAP',
+  'AuthMail',
+
+  // Tâches planifiées
+  'CronTask',
+
+  // Notifications (templates système)
+  'Notification',
+  'NotificationTemplate',
+  'NotificationTarget',
+
+  // Catégories et types système
+  'RequestType',
+  'TaskCategory',
+  'SolutionType',
+  'DocumentCategory',
+  'DocumentType',
+  'ITILCategory',
+
+  // Calendriers et jours fériés
+  'Calendar',
+  'CalendarSegment',
+  'Holiday',
+
+  // Tableaux de bord
+  'Dashboard',
+])
 
 export const useResetStore = defineStore('reset', () => {
 
   // ---- STATE ----
-  const resources    = ref([])      // [{key, label, count, loading, selected}]
+  const resources    = ref([])
   const loading      = ref(false)
   const processing   = ref(false)
-  const progress     = ref(null)    // {resource, current, total, success, failed}
-  const lastReport   = ref(null)    // {totalSuccess, totalFailed, details}
+  const progress     = ref(null)
+  const lastReport   = ref(null)
   const error        = ref(null)
 
   // ---- GETTERS ----
@@ -67,38 +94,62 @@ export const useResetStore = defineStore('reset', () => {
   // ---- ACTIONS ----
 
   /**
-   * Charge la liste des ressources avec leur count
+   * Découvre dynamiquement les ressources via /doc.json
+   * puis charge les counts via l'API v1
    */
   async function loadResources() {
     loading.value = true
     error.value   = null
 
-    // Initialiser
-    resources.value = AVAILABLE_RESOURCES.map(r => ({
-      ...r,
-      count: 0,
-      loading: true,
-      selected: false,
-    }))
+    try {
+      // 1. Découverte dynamique via OpenAPI
+      const discovered = await GlpiClient.discoverResources()
 
-    // Charger les counts en parallèle
-    await Promise.all(
-      resources.value.map(async (r) => {
-        try {
-          r.count = await GlpiClient.countItems(r.key)
-        } catch (e) {
-          r.count = 0
-        } finally {
-          r.loading = false
-        }
-      })
-    )
+      // 2. Filtrer les ressources protégées
+      const usable = discovered.filter(r => !PROTECTED_RESOURCES.has(r.key))
 
-    loading.value = false
+      // 3. Initialiser la liste
+      resources.value = usable.map(r => ({
+        key:       r.key,
+        label:     r.key,
+        category:  r.category,
+        count:     0,
+        loading:   true,
+        selected:  false,
+        available: true,
+      }))
+
+      // 4. Charger les counts par batch de 5 (pour ne pas surcharger GLPI)
+      const BATCH_SIZE = 5
+      for (let i = 0; i < resources.value.length; i += BATCH_SIZE) {
+        const batch = resources.value.slice(i, i + BATCH_SIZE)
+        await Promise.all(
+          batch.map(async (r) => {
+            try {
+              r.count = await GlpiClient.countItems(r.key)
+            } catch (e) {
+              r.count = 0
+              r.available = false
+            } finally {
+              r.loading = false
+            }
+          })
+        )
+      }
+
+      // 5. Retirer les ressources non accessibles via API v1
+      resources.value = resources.value.filter(r => r.available)
+
+    } catch (err) {
+      error.value = err.message || 'Erreur lors de la découverte'
+      console.error(err)
+    } finally {
+      loading.value = false
+    }
   }
 
   /**
-   * Coche/décoche tout
+   * Coche/décoche toutes les ressources
    */
   function toggleAll(checked) {
     resources.value.forEach(r => { r.selected = checked })
@@ -135,7 +186,7 @@ export const useResetStore = defineStore('reset', () => {
 
       lastReport.value = { totalSuccess, totalFailed, details }
 
-      // Recharger les counts
+      // Recharger les counts après purge
       await loadResources()
 
     } catch (err) {
@@ -154,7 +205,7 @@ export const useResetStore = defineStore('reset', () => {
   }
 
   /**
-   * Supprime TOUTES les ressources
+   * Supprime TOUTES les ressources disponibles
    */
   async function purgeAll() {
     await purgeResources(resources.value)
