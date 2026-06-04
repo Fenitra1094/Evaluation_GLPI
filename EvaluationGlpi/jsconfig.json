@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "jsx": "preserve",
+    "allowJs": true,
+    "checkJs": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "ignoreDeprecations": "6.0"
+  },
+  "include": [
+    "src/**/*.js",
+    "src/**/*.vue"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
