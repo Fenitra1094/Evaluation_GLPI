@@ -1,9 +1,9 @@
 <template>
-  <MainLayout />
+  <router-view />
 </template>
 
 <script setup>
-import MainLayout from '@/layouts/MainLayout.vue'
+// App mounts the active route view
 </script>
 
 <style>
