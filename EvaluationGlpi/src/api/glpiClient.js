@@ -73,7 +73,23 @@ const GlpiClient = {
   // ======================
   // COMPUTERS
   // ======================
-
+async getComputers({
+  start = 0,
+  limit = 50,
+  sort = 'id',
+  order = "ASC",
+  search = '',
+} = {}){
+  await this.ensureSEssion()
+  const range = `${start}-${start + limit - 1}`
+  const params = {
+    expand_dropdowns: true,
+    range,
+    sort,
+    order,
+    
+  }
+}
   /**
    * Récupère la liste des ordinateurs
    * @param {Object} params - paramètres de pagination et filtres
