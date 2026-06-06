@@ -12,17 +12,20 @@
         :key="item.path"
         :to="item.path"
         class="nav-item"
-        :active-class="item.exact ? '' : 'active'"
-        :exact-active-class="item.exact ? 'active' : ''"
       >
         <span class="icon">{{ item.icon }}</span>
         <span class="label">{{ item.label }}</span>
       </router-link>
-    </nav>
 
-    <div class="sidebar-footer">
-      <p class="version">v1.0.0</p>
-    </div>
+      <!-- Déconnexion en bas -->
+      <router-link
+        to="/deconnexion"
+        class="nav-item logout-item"
+      >
+        <span class="icon">🚪</span>
+        <span class="label">Déconnexion</span>
+      </router-link>
+    </nav>
 
   </aside>
 </template>
@@ -34,6 +37,7 @@ const menuItems = [
   { path: '/computers',        icon: '💻', label: 'Ordinateurs (GLPI)',  exact: false },
   { path: '/local-computers',  icon: '🗂️', label: 'Mes PC locaux',       exact: false },
   { path: '/reset',            icon: '🗑️', label: 'Réinitialisation',    exact: false },
+  { path: '/import', icon: '📥', label: 'Import CSV', exact: false },
 ]
 </script>
 
@@ -58,6 +62,15 @@ const menuItems = [
   gap: 10px;
   padding: 20px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.logout-item {
+  margin-top: auto;
 }
 .logo {
   font-size: 26px;

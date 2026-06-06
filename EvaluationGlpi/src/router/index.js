@@ -10,6 +10,13 @@ const router = createRouter({
       meta: { title: 'Connexion' },
     },
     {
+          path: '/deconnexion',
+          name: 'deconnexion',
+          component: () => import('@/views/Mdp.vue'),
+          meta: { title: 'Connexion' },
+    },
+    
+    {
       path: '/main',
       name: 'main',
       component: () => import('@/layouts/MainLayout.vue'),
@@ -24,6 +31,12 @@ const router = createRouter({
           component: () => import('@/views/HomeView.vue'),
           meta: { title: 'Accueil' },
         },
+        {
+        path: '/import',
+        name: 'import',
+        component: () => import('@/views/ImportView.vue'),
+        meta: { title: 'Import CSV', requiresAuth: true },
+      },
         {
           path: '/computers',
           name: 'computers',
@@ -49,6 +62,11 @@ const router = createRouter({
 
 // Mise à jour du titre de la page
 router.beforeEach((to) => {
+  const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
+
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    return '/'
+  }
   document.title = `${to.meta.title} | GLPI App`
 })
 
