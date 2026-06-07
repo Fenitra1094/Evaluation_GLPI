@@ -37,7 +37,7 @@ const menuItems = [
   { path: '/computers',        icon: '💻', label: 'Ordinateurs (GLPI)',  exact: false },
   { path: '/local-computers',  icon: '🗂️', label: 'Mes PC locaux',       exact: false },
   { path: '/reset',            icon: '🗑️', label: 'Réinitialisation',    exact: false },
-  { path: '/import', icon: '📥', label: 'Import CSV', exact: false },
+  { path: '/csv-import', icon: '📦', label: 'Import CSV', exact: false },
 ]
 </script>
 

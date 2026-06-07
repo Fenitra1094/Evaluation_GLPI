@@ -1,6 +1,8 @@
 /**
- * Parser CSV simple
- * Gère les guillemets et les virgules dans les valeurs
+ * Parser CSV qui gère :
+ * - Les guillemets simples : "abc"
+ * - Les guillemets échappés : "a""b" → a"b
+ * - Les virgules dans les valeurs entre guillemets
  */
 
 export function parseCSV(text) {
@@ -10,10 +12,8 @@ export function parseCSV(text) {
     throw new Error('CSV vide ou sans données')
   }
 
-  // Headers
   const headers = parseLine(lines[0])
 
-  // Rows
   const rows = []
   for (let i = 1; i < lines.length; i++) {
     const values = parseLine(lines[i])
@@ -21,37 +21,58 @@ export function parseCSV(text) {
     headers.forEach((h, idx) => {
       row[h] = values[idx] !== undefined ? values[idx].trim() : ''
     })
-    row._lineNumber = i + 1   // Pour les messages d'erreur
+    row._lineNumber = i + 1
     rows.push(row)
   }
 
   return { headers, rows }
 }
 
+/**
+ * Parse une ligne CSV en gérant les guillemets échappés
+ */
 function parseLine(line) {
   const result = []
   let current  = ''
   let inQuotes = false
+  let i = 0
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
+  while (i < line.length) {
+    const char     = line[i]
+    const nextChar = line[i + 1]
 
     if (char === '"') {
-      inQuotes = !inQuotes
-    } else if (char === ',' && !inQuotes) {
+      if (inQuotes && nextChar === '"') {
+        // ✅ "" dans une valeur entre guillemets = " échappé
+        current += '"'
+        i += 2
+        continue
+      } else {
+        // Début ou fin de valeur entre guillemets
+        inQuotes = !inQuotes
+        i++
+        continue
+      }
+    }
+
+    if (char === ',' && !inQuotes) {
       result.push(current)
       current = ''
-    } else {
-      current += char
+      i++
+      continue
     }
+
+    current += char
+    i++
   }
+
   result.push(current)
   return result
 }
 
 
 /**
- * Lire un fichier File et retourner son texte
+ * Lit un fichier File et retourne son texte
  */
 export function readFileAsText(file) {
   return new Promise((resolve, reject) => {

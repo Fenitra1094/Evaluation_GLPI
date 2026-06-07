@@ -199,7 +199,6 @@ const progressPercent = computed(() => {
   return Math.round((store.progress.current / store.progress.total) * 100)
 })
 
-
 </script>
 
 <style scoped>

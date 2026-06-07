@@ -20,6 +20,7 @@ const GlpiClient = {
   deleteItem    : generic.deleteItem,
   purgeResource : generic.purgeResource,
   getItemById   : generic.getItemById, 
+  getAllItemsWithDetails : generic.getAllItemsWithDetails, 
 
   // ───── DISCOVERY ─────
   discoverResources : discovery.discoverResources,

@@ -1,26 +1,15 @@
 Name,Status,Location,Manufacturer,Item_Type,Model,Inventory_Number,User
-PRT-ADM-001,En production,Administration,Brother,Printer,HL-L2350DW,ITU-2026-0011,Rakoto Jean
-PRT-COMPTA-001,En production,Comptabilité,HP,Printer,LaserJet Pro M404,ITU-2026-0012,Rabe Hanitra
-PRT-LAB-001,En production,Laboratoire IA,Canon,Printer,imageCLASS LBP6230,ITU-2026-0013,ITU Labs
-PRT-BIB-001,Maintenance,Bibliothèque,Epson,Printer,EcoTank L3250,ITU-2026-0014,Bibliothèque
-PRT-FORM-001,En stock,Magasin Informatique,Xerox,Printer,Phaser 3260,ITU-2026-0015,
-PHN-ADM-001,En production,Administration,Cisco,Phone,IP Phone 8841,ITU-2026-0016,Rakoto Jean
-PHN-ADM-002,En production,Administration,Yealink,Phone,T46S,ITU-2026-0017,Rasoanaivo Marie
-PHN-COMPTA-001,En production,Comptabilité,Cisco,Phone,IP Phone 7841,ITU-2026-0018,Rakotondranaivo Paul
-PHN-LAB-001,En panne,Laboratoire IA,Polycom,Phone,VVX 411,ITU-2026-0019,ITU Labs
-PHN-FORM-001,En stock,Magasin Informatique,Grandstream,Phone,GXP1625,ITU-2026-0020,
-SWT-SRV-001,En production,Salle Serveur,Cisco,NetworkEquipment,Catalyst 2960,ITU-2026-0021,ITU Labs
-SWT-SRV-002,En production,Salle Serveur,HP,NetworkEquipment,Aruba 2530,ITU-2026-0022,ITU Labs
-RTR-SRV-001,En production,Salle Serveur,MikroTik,NetworkEquipment,RB4011,ITU-2026-0023,ITU Labs
-SWT-ADM-001,En production,Administration,TP-Link,NetworkEquipment,TL-SG108,ITU-2026-0024,Rakoto Jean
-RTR-LAB-001,Maintenance,Laboratoire IA,Ubiquiti,NetworkEquipment,EdgeRouter X,ITU-2026-0025,ITU Labs
-KBD-ADM-001,En production,Administration,Logitech,Peripheral,K120 Keyboard,ITU-2026-0026,Rakoto Jean
-MSE-ADM-001,En production,Administration,Logitech,Peripheral,B100 Mouse,ITU-2026-0027,Rakoto Jean
-KBD-COMPTA-001,En production,Comptabilité,Microsoft,Peripheral,Wired Keyboard 600,ITU-2026-0028,Rabe Hanitra
-HDC-LAB-001,En production,Laboratoire IA,Logitech,Peripheral,C920 Webcam,ITU-2026-0029,ITU Labs
-USB-FORM-001,En stock,Magasin Informatique,SanDisk,Peripheral,Ultra 64GB,ITU-2026-0030,
-SFT-ADM-001,En production,Administration,Microsoft,PDU,Office 365,ITU-2026-0031,Rakoto Jean
-SFT-ADM-002,En production,Administration,Adobe,PDU,Acrobat Reader DC,ITU-2026-0032,Rasoanaivo Marie
-SFT-COMPTA-001,En production,Comptabilité,Sage,PDU,Sage 100 Comptabilité,ITU-2026-0033,Rabe Hanitra
-SFT-LAB-001,En production,Laboratoire IA,JetBrains,PDU,PyCharm Professional,ITU-2026-0034,ITU Labs
-SFT-LAB-002,En production,Laboratoire IA,Microsoft,PDU,Visual Studio Code,ITU-2026-0035,ITU Labs
+PC-001,En production,Bureau 101,Dell,Computer,OptiPlex 7010,INV-001,Rakoto Jean
+MN-001,En production,Bureau 101,HP,Monitor,EliteDisplay,INV-002,Rakoto Jean
+PR-001,En production,Bureau 200,Brother,Printer,HL-L2350DW,INV-003,Bibliothèque
+PH-001,En production,Bureau 105,Cisco,Phone,IP 8841,INV-004,Rabe Hanitra
+SW-001,En production,Salle Serveur,Cisco,NetworkEquipment,Catalyst 2960,INV-005,ITU Labs
+KB-001,En stock,Magasin,Logitech,Peripheral,K120,INV-006,
+RK-001,En production,Datacenter,APC,Rack,NetShelter SX 42U,INV-007,ITU Labs
+PDU-001,En production,Datacenter,APC,PDU,AP7921,INV-008,ITU Labs
+SFT-001,En production,Administration,Microsoft,Software,Office 365,INV-009,Rakoto Jean
+LIC-001,En production,Administration,Microsoft,SoftwareLicense,Office 365 Pro,LIC-2026-001,Rakoto Jean
+CAR-001,En stock,Magasin,HP,Cartridge,HP 305A Toner,INV-010,
+CON-001,En stock,Magasin,3M,Consumable,Lingettes Nettoyantes,INV-011,
+CBL-001,En production,Datacenter,Belkin,Cable,Cat6 RJ45 2m,INV-012,ITU Labs
+CRT-001,En production,Salle Serveur,DigiCert,Certificate,SSL Wildcard,CERT-2026-001,ITU Labs

@@ -13,5 +13,12 @@ glpiApi.interceptors.request.use((config) => {
   if (sessionToken) {
     config.headers['Session-Token'] = sessionToken
   }
+
+  // 🆕 Si c'est un FormData, supprimer Content-Type
+  // (axios va le mettre tout seul avec le boundary)
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+  
   return config
 })

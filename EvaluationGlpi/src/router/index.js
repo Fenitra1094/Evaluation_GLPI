@@ -32,11 +32,11 @@ const router = createRouter({
           meta: { title: 'Accueil' },
         },
         {
-        path: '/import',
-        name: 'import',
-        component: () => import('@/views/ImportView.vue'),
-        meta: { title: 'Import CSV', requiresAuth: true },
-      },
+          path: '/csv-import',
+          name: 'csv-import',
+          component: () => import('@/views/GlobalImportView.vue'),
+          meta: { title: 'Import CSV', requiresAuth: true },
+        },
         {
           path: '/computers',
           name: 'computers',

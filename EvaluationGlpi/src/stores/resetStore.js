@@ -66,52 +66,49 @@ const PROTECTED_USERS = new Set([
   'glpi-system',  // ← Compte interne GLPI (logs, cron, notifications)
 ])
 
-/**
- * Purge spéciale pour les Users
- * Supprime tous les users SAUF ceux dans PROTECTED_USERS
- */
 async function purgeUsersExceptSystem(onProgress = null) {
-  // 1. Récupérer tous les users
-  const allUsers = await GlpiClient.getAllItems('User')
+  // 🚀 1. Récupérer TOUS les users en UNE seule requête
+  console.log('👤 Chargement de tous les users...')
+  await GlpiClient.ensureSession()
 
-  // 2. Filtrer pour récupérer ceux à supprimer
-  // ⚠️ On a besoin du nom, donc on doit récupérer plus que juste l'id
-  const usersToDelete = []
-  const total = allUsers.length
+  // Récupère tout d'un coup avec leurs noms (pas seulement les IDs)
+  const allUsers = await GlpiClient.getAllItemsWithDetails('User')
 
-  // Récupérer les noms (par batch pour aller plus vite)
-  for (let i = 0; i < allUsers.length; i++) {
-    try {
-      const user = await GlpiClient.getItemById('User', allUsers[i].id)
-      if (!PROTECTED_USERS.has(user.name)) {
-        usersToDelete.push({ id: user.id, name: user.name })
-      }
-    } catch (err) {
-      console.warn(`Erreur lecture user ${allUsers[i].id}`)
-    }
+  // 🚀 2. Filtrer ceux à supprimer (instantané, en mémoire)
+  const usersToDelete = allUsers.filter(u => !PROTECTED_USERS.has(u.name))
+
+  console.log(`👤 ${usersToDelete.length} users à supprimer sur ${allUsers.length}`)
+
+  if (usersToDelete.length === 0) {
+    return { resource: 'User', total: 0, success: 0, failed: 0 }
   }
 
-  console.log(`👤 ${usersToDelete.length} users à supprimer sur ${total}`)
-
-  // 3. Supprimer ceux à supprimer
+  // 🚀 3. Supprimer en PARALLÈLE par batch de 10
   let success = 0
   let failed  = 0
+  const BATCH_SIZE = 10
 
-  for (let i = 0; i < usersToDelete.length; i++) {
-    const u = usersToDelete[i]
-    try {
-      await GlpiClient.deleteItem('User', u.id)
-      success++
-      console.log(`🗑️ User supprimé : ${u.name}`)
-    } catch (err) {
-      failed++
-      console.error(`❌ Erreur suppression user ${u.name}`)
-    }
+  for (let i = 0; i < usersToDelete.length; i += BATCH_SIZE) {
+    const batch = usersToDelete.slice(i, i + BATCH_SIZE)
+
+    const results = await Promise.allSettled(
+      batch.map(u => GlpiClient.deleteItem('User', u.id))
+    )
+
+    results.forEach((result, idx) => {
+      if (result.status === 'fulfilled') {
+        success++
+        console.log(`🗑️ User supprimé : ${batch[idx].name}`)
+      } else {
+        failed++
+        console.error(`❌ Erreur suppression user ${batch[idx].name}`)
+      }
+    })
 
     if (onProgress) {
       onProgress({
         resource: 'User',
-        current : i + 1,
+        current : Math.min(i + BATCH_SIZE, usersToDelete.length),
         total   : usersToDelete.length,
         success,
         failed,
