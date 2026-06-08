@@ -3,6 +3,9 @@ import * as computers  from './glpi/computers'
 import * as generic    from './glpi/generic'
 import * as discovery  from './glpi/discovery'
 import * as importApi  from './glpi/import'
+import * as stats  from './glpi/stats'
+import * as tickets from './glpi/tickets'
+import * as items from './glpi/FrontOffice/items'
 
 const GlpiClient = {
   // ───── SESSION ─────
@@ -30,6 +33,22 @@ const GlpiClient = {
   getOrCreateDropdown : importApi.getOrCreateDropdown,
   createItem          : importApi.createItem,
   updateItem          : importApi.updateItem,
+
+   // STATS
+  getAssetsStats  : stats.getAssetsStats,
+  getTicketsStats : stats.getTicketsStats,
+
+    // TICKETS
+  getTickets       : tickets.getTickets,
+  getTicketById    : tickets.getTicketById,
+  getTicketItems   : tickets.getTicketItems,
+  getTicketCosts   : tickets.getTicketCosts,
+  getItemDetails   : tickets.getItemDetails,
+
+   // ITEMS
+  getItemsByType : items.getItemsByType,
+  getAllItems    : items.getAllItems,
+  getItemById    : items.getItemById,
 }
 
 export default GlpiClient

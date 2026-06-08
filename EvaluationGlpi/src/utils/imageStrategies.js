@@ -1,5 +1,6 @@
 /**
  * Stratégies pour l'import des images (depuis un ZIP)
+ * Upload via fetch natif (plus fiable que axios pour multipart)
  */
 
 import JSZip from 'jszip'
@@ -8,7 +9,7 @@ import { ensureSession } from '@/api/glpi/session'
 import { findItemByName } from './ticketStrategies'
 
 /**
- * Lit un fichier ZIP et retourne ses entrées
+ * Lit un fichier ZIP
  */
 export async function readZipFile(file) {
   const zip = await JSZip.loadAsync(file)
@@ -16,97 +17,118 @@ export async function readZipFile(file) {
 
   for (const filename of Object.keys(zip.files)) {
     const entry = zip.files[filename]
-
     if (entry.dir) continue
 
     const ext = filename.split('.').pop().toLowerCase()
-    if (!['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) continue
+    if (!['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext)) continue
 
-    // Nettoyer le nom : enlever le chemin et l'extension
     const baseName = filename.split('/').pop().replace(/\.[^.]+$/, '')
 
-    images.push({
-      filename,
-      baseName,
-      extension: ext,
-      entry,
-    })
+    images.push({ filename, baseName, extension: ext, entry })
   }
 
   return images
 }
 
-/**
- * Convertit un Blob en File avec un nom
- */
-function blobToFile(blob, filename) {
-  return new File([blob], filename, { type: blob.type })
+function getMimeType(ext) {
+  const types = {
+    png : 'image/png',
+    jpg : 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif : 'image/gif',
+    webp: 'image/webp',
+    bmp : 'image/bmp',
+  }
+  return types[ext.toLowerCase()] || 'application/octet-stream'
 }
 
 /**
- * Upload une image en tant que Document dans GLPI
- * Format attendu par GLPI :
- *
- * POST /Document
- * Content-Type: multipart/form-data
- *
- * Champ "uploadManifest" : { "input": { "name": "...", "_filename": ["fichier.png"] } }
- * Champ "filename[0]"    : <file>
+ * Upload une image via FETCH (pas axios)
  */
 export async function uploadImageForAsset(imageInfo, log) {
   const logFn = log || (() => {})
   const { baseName, filename, extension, entry } = imageInfo
 
-  // 1. Trouver l'asset par son nom
+  // 1. Trouver l'asset
   logFn('info', `🖼️ Recherche asset "${baseName}"`)
   const found = await findItemByName(baseName)
 
   if (!found) {
-    logFn('warning', `   ⚠️ Asset "${baseName}" introuvable, image ignorée`)
+    logFn('warning', `   ⚠️ Asset "${baseName}" introuvable`)
     return null
   }
 
-  // 2. Récupérer le contenu en Blob
-  const blob     = await entry.async('blob')
+  // 2. Préparer le fichier
+  const blob      = await entry.async('blob')
+  const mimeType  = getMimeType(extension)
   const cleanName = `${baseName}.${extension}`
-  const file     = blobToFile(blob, cleanName)
 
+  // ✅ Créer un vrai File avec le bon MIME
+  const file = new File([blob], cleanName, { type: mimeType })
+
+  logFn('info', `   📤 Upload "${cleanName}" (${mimeType}, ${(file.size / 1024).toFixed(1)} KB)`)
+
+  // 3. S'assurer qu'on a une session
   await ensureSession()
 
-  // 3. Préparer le FormData avec le format GLPI
+  // 4. Récupérer les tokens
+  const sessionToken = sessionStorage.getItem('glpi_session_token')
+  const appToken     = import.meta.env.VITE_GLPI_APP_TOKEN
+  const baseUrl      = import.meta.env.VITE_GLPI_BASE_URL
+
+  // 5. Préparer FormData
   const formData = new FormData()
-
-  // ⚠️ Format GLPI strict : uploadManifest en JSON dans un champ
-  const manifest = {
-    input: {
-      name      : baseName,
-      _filename : [cleanName],
-    }
-  }
-
-  formData.append('uploadManifest', JSON.stringify(manifest))
+  formData.append(
+    'uploadManifest',
+    JSON.stringify({
+      input: {
+        name      : baseName,
+        _filename : [cleanName],
+      }
+    })
+  )
   formData.append('filename[0]', file, cleanName)
 
-  // 4. Upload du Document
+  // 6. ✅ UPLOAD AVEC FETCH (PAS AXIOS)
   try {
-    logFn('info', `   📤 Upload de "${cleanName}"...`)
-
-    const response = await glpiApi.post('/Document', formData, {
+    const uploadResponse = await fetch(`${baseUrl}/Document`, {
+      method: 'POST',
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Session-Token': sessionToken,
+        'App-Token'    : appToken,
+        // ⚠️ PAS de Content-Type ! fetch le mettra avec boundary
       },
+      body: formData,
     })
 
-    const created = Array.isArray(response.data) ? response.data[0] : response.data
+    // Récupérer la réponse
+    const responseText = await uploadResponse.text()
+    let responseData
+
+    try {
+      responseData = JSON.parse(responseText)
+    } catch (e) {
+      throw new Error(`Réponse invalide : ${responseText.substring(0, 100)}`)
+    }
+
+    if (!uploadResponse.ok) {
+      const errMsg = Array.isArray(responseData)
+        ? `${responseData[0]} - ${responseData[1]}`
+        : `HTTP ${uploadResponse.status}`
+      throw new Error(errMsg)
+    }
+
+    const created = Array.isArray(responseData) ? responseData[0] : responseData
     const documentId = created.id
 
     if (!documentId) {
-      throw new Error('Document créé mais pas d\'id retourné')
+      throw new Error(`Pas d'ID retourné. Réponse : ${responseText}`)
     }
 
-    logFn('success', `   ✅ Image uploadée (Document id=${documentId})`)
+    logFn('success', `   ✅ Document créé (id=${documentId})`)
 
-    // 5. Lier le Document à l'asset
+    // 7. Lier le Document à l'asset
+    let linkId = null
     try {
       const linkResponse = await glpiApi.post('/Document_Item', {
         input: {
@@ -117,31 +139,23 @@ export async function uploadImageForAsset(imageInfo, log) {
       })
 
       const link = Array.isArray(linkResponse.data) ? linkResponse.data[0] : linkResponse.data
-      logFn('success', `   ✅ Image liée à ${found.itemtype}#${found.id}`)
-
-      return {
-        documentId,
-        linkId    : link.id,
-        itemtype  : found.itemtype,
-        items_id  : found.id,
-        assetName : baseName,
-      }
-
+      linkId = link.id
+      logFn('success', `   ✅ Lié à ${found.itemtype}#${found.id}`)
     } catch (linkErr) {
-      logFn('warning', `   ⚠️ Document créé mais liaison échouée : ${linkErr.message}`)
-      return { documentId, assetName: baseName, itemtype: found.itemtype, items_id: found.id }
+      logFn('warning', `   ⚠️ Liaison déjà existante`)
+    }
+
+    return {
+      documentId,
+      linkId,
+      itemtype : found.itemtype,
+      items_id : found.id,
+      assetName: baseName,
+      filename : cleanName,
     }
 
   } catch (err) {
-    // Extraire le vrai message d'erreur GLPI
-    const errData = err.response?.data
-    let errMsg = err.message
-
-    if (Array.isArray(errData) && errData.length >= 2) {
-      errMsg = `${errData[0]} - ${errData[1]}`
-    }
-
-    logFn('error', `   ❌ Erreur upload "${cleanName}" : ${errMsg}`)
-    throw new Error(`Upload image "${cleanName}" : ${errMsg}`)
+    logFn('error', `   ❌ Erreur upload "${cleanName}" : ${err.message}`)
+    throw new Error(`Upload "${cleanName}" : ${err.message}`)
   }
 }

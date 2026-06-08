@@ -3,9 +3,32 @@ import { createRouter, createWebHistory } from 'vue-router'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    {
+
+    // ═══════════════════════════════════════════
+    // FRONT OFFICE (PUBLIC) — Layout avec topbar
+    // ═══════════════════════════════════════════
+
+     {
       path: '/',
-      name: 'Code',
+      component: () => import('@/layouts/FrontLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'items',
+          component: () => import('@/views/FrontOffice/ItemsView.vue'),
+          meta: { title: 'Éléments' },
+        },
+      ]
+    },
+
+    
+    // ═══════════════════════════════════════════
+    // LOGIN ADMIN (page seule, pas de layout)
+    // ═══════════════════════════════════════════
+
+    {
+      path: '/admin/login',
+      name: 'admin-login',
       component: () => import('@/views/Mdp.vue'),
       meta: { title: 'Connexion' },
     },
@@ -17,57 +40,85 @@ const router = createRouter({
     },
     
     {
-      path: '/main',
-      name: 'main',
+      path: '/admin',
+      name: 'admin',
       component: () => import('@/layouts/MainLayout.vue'),
       children: [
         {
           path: '',
-          redirect: 'home'
+          redirect: '/admin/dashboard',
         },
         {
-          path: '/home',
-          name: 'home',
-          component: () => import('@/views/HomeView.vue'),
-          meta: { title: 'Accueil' },
+          path: 'tickets',
+          name: 'tickets',
+          component: () => import('@/views/TicketsView.vue'),
+          meta: { title: 'Tickets', requiresAuth: true },
         },
         {
-          path: '/csv-import',
+          path: 'dashboard',
+          name: 'dashboard',
+          component: () => import('@/views/DashboardView.vue'),
+          meta: { title: 'Tableau de bord', requiresAuth: true  },
+        },
+        {
+          path: 'csv-import',
           name: 'csv-import',
           component: () => import('@/views/GlobalImportView.vue'),
           meta: { title: 'Import CSV', requiresAuth: true },
         },
         {
-          path: '/computers',
+          path: 'computers',
           name: 'computers',
           component: () => import('@/views/ComputersView.vue'),
-          meta: { title: 'Liste des Ordinateurs' },
+          meta: { title: 'Liste des Ordinateurs',requiresAuth: true  },
         },
         {
-          path: '/reset',
+          path: 'reset',
           name: 'reset',
           component: () => import('@/views/ResetView.vue'),
-          meta: { title: 'Réinitialisation' },
+          meta: { title: 'Réinitialisation', requiresAuth: true  },
         },
         {
-          path: '/local-computers',
+          path: 'local-computers',
           name: 'local-computers',
           component: () => import('@/views/LocalComputersView.vue'),
-          meta: { title: 'Mes ordinateurs locaux' },
+          meta: { title: 'Mes ordinateurs locaux', requiresAuth: true  },
         },
       ]
     },
+
+    // ═══════════════════════════════════════════
+    // CATCH ALL — Redirection
+    // ═══════════════════════════════════════════
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/'
+    }
   ],
 })
 
-// Mise à jour du titre de la page
-router.beforeEach((to) => {
+
+// ═══════════════════════════════════════════════
+// 🔒 GUARD DE PROTECTION
+// ═══════════════════════════════════════════════
+router.beforeEach((to, from, next) => {
   const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
 
+  // Mise à jour du titre
+  document.title = `${to.meta.title || 'GLPI'} | App`
+
+  // ✅ Si la route nécessite une auth ET pas connecté
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return '/'
+    console.warn('🚫 Accès refusé, redirection vers login')
+    return next('/admin/login')
   }
-  document.title = `${to.meta.title} | GLPI App`
+
+  // ✅ Si déjà connecté et qu'on va sur le login
+  if (to.path === '/admin/login' && isAuthenticated) {
+    return next('/admin/dashboard')
+  }
+
+  next()
 })
 
 export default router

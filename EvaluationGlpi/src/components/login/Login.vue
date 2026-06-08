@@ -82,7 +82,7 @@ function recupererCode() {
     return
   }
 
-  router.push('/home')
+  router.push('/admin/dashboard')
 }
 </script>
 
