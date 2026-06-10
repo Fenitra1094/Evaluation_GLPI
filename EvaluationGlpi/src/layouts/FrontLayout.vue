@@ -18,6 +18,13 @@
           </router-link>
         </nav>
 
+        <!-- Menu -->
+        <nav class="nav-menu">
+          <router-link to="/createTicket" class="nav-link">
+            🏠 Creer un nouveau ticket
+          </router-link>
+        </nav>
+
         <!-- Bouton Admin -->
         <button class="btn-admin" @click="goToAdmin">
           🔒 Back Office

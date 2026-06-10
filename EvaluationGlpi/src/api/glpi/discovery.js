@@ -13,10 +13,15 @@ export async function discoverResources() {
     const map = new Map()
 
     for (const path in schema.paths) {
+      //Match : /category
+       // Exemple : /Assets/Computer, /Assistance/Ticket
+
       const matches = path.match(/^\/([A-Z][a-zA-Z0-9]+)\/([A-Z][a-zA-Z0-9]+)$/)
       if (matches) {
         const category = matches[1]
         const resource = matches[2] 
+
+        //Eviter les doublons
         if (!map.has(resource)) {
           map.set(resource, { key: resource, category })
         }

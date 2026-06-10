@@ -44,11 +44,14 @@ const GlpiClient = {
   getTicketItems   : tickets.getTicketItems,
   getTicketCosts   : tickets.getTicketCosts,
   getItemDetails   : tickets.getItemDetails,
+  createTicket       : tickets.createTicket,        // ← AJOUTÉ
+  linkItemToTicket   : tickets.linkItemToTicket,    // ← AJOUTÉ
+  createTicketCost   : tickets.createTicketCost, 
 
    // ITEMS
   getItemsByType : items.getItemsByType,
-  getAllItems    : items.getAllItems,
-  getItemById    : items.getItemById,
+  fetchAllTypesItems    : items.fetchAllTypesItems,
+  fetchItemById    : items.fetchItemById,
 }
 
 export default GlpiClient

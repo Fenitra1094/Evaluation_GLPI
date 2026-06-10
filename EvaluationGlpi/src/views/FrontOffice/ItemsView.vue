@@ -101,15 +101,6 @@
               </select>
             </div>
 
-            <div class="filter-item">
-              <label>👤 Utilisateur</label>
-              <select v-model="store.filterUser" @change="store.currentPage = 1">
-                <option v-for="u in store.uniqueUsers" :key="u" :value="u">
-                  {{ u === 'all' ? 'Tous les utilisateurs' : u }}
-                </option>
-              </select>
-            </div>
-
           </div>
         </transition>
 
@@ -134,10 +125,6 @@
           <span class="filter-tag" v-if="store.filterManufacturer !== 'all'">
             Marque : {{ store.filterManufacturer }}
             <button @click="store.filterManufacturer = 'all'">✕</button>
-          </span>
-          <span class="filter-tag" v-if="store.filterUser !== 'all'">
-            User : {{ store.filterUser }}
-            <button @click="store.filterUser = 'all'">✕</button>
           </span>
         </div>
       </div>
@@ -188,13 +175,13 @@
           </span>
           <span class="col-serial">{{ item.serial || item.otherserial || '—' }}</span>
           <span class="col-status">
-            <span v-if="item.states_id?.name" class="pill">
-              {{ item.states_id.name }}
+            <span v-if="fieldValue(item.states_id) !== '—'" class="pill">
+              {{ fieldValue(item.states_id) }}
             </span>
             <span v-else>—</span>
           </span>
-          <span class="col-location">{{ item.locations_id?.name || '—' }}</span>
-          <span class="col-user">{{ item.users_id?.name || '—' }}</span>
+          <span class="col-location">{{ fieldValue(item.locations_id) }}</span>
+          <span class="col-user">{{ fieldValue(item.users_id) }}</span>
         </div>
       </div>
 
@@ -281,16 +268,16 @@
               <div class="detail-card">
                 <div class="detail-label">📌 Statut</div>
                 <div class="detail-value">
-                  <span class="pill">{{ store.selectedItem.states_id?.name || '—' }}</span>
+                  <span class="pill">{{ fieldValue(store.selectedItem.states_id) }}</span>
                 </div>
               </div>
               <div class="detail-card">
                 <div class="detail-label">📍 Emplacement</div>
-                <div class="detail-value">{{ store.selectedItem.locations_id?.name || '—' }}</div>
+                <div class="detail-value">{{ fieldValue(store.selectedItem.locations_id) }}</div>
               </div>
               <div class="detail-card">
                 <div class="detail-label">🏭 Fabricant</div>
-                <div class="detail-value">{{ store.selectedItem.manufacturers_id?.name || '—' }}</div>
+                <div class="detail-value">{{ fieldValue(store.selectedItem.manufacturers_id) }}</div>
               </div>
               <div class="detail-card">
                 <div class="detail-label">📦 Modèle</div>
@@ -298,7 +285,52 @@
               </div>
               <div class="detail-card">
                 <div class="detail-label">👤 Utilisateur</div>
-                <div class="detail-value">{{ store.selectedItem.users_id?.name || '—' }}</div>
+                <div class="detail-value">{{ fieldValue(store.selectedItem.users_id) }}</div>
+              </div>
+            </div>
+            <!-- ✅ FIN .detail-grid -->
+
+            <!-- ===== GALERIE D'IMAGES ===== -->
+            <div class="detail-section">
+              <h3>
+                🖼️ Images / Documents
+                <span v-if="store.selectedItemDocuments.length > 0" class="count-badge">
+                  {{ store.selectedItemDocuments.length }}
+                </span>
+              </h3>
+
+              <!-- Loading -->
+              <div v-if="store.loadingDocuments" class="loading-mini">
+                <div class="spinner-small"></div>
+                <span>Chargement des images...</span>
+              </div>
+
+              <!-- Aucune image -->
+              <div
+                v-else-if="store.selectedItemDocuments.length === 0"
+                class="no-images"
+              >
+                📷 Aucune image associée à cet élément
+              </div>
+
+              <!-- Galerie -->
+              <div v-else class="image-gallery">
+                <div
+                  v-for="img in store.selectedItemDocuments"
+                  :key="img.id"
+                  class="image-card"
+                >
+                  <img
+                    v-if="img.url"
+                    :src="img.url"
+                    :alt="img.name"
+                    @click="openFullImage(img.url)"
+                  />
+                  <div v-else class="image-placeholder">
+                    ⚠️ Fichier introuvable
+                  </div>
+                  <div class="image-name">{{ img.name }}</div>
+                </div>
               </div>
             </div>
 
@@ -348,8 +380,7 @@ const hasActiveFilters = computed(() => {
          store.filterType !== 'all' ||
          store.filterStatus !== 'all' ||
          store.filterLocation !== 'all' ||
-         store.filterManufacturer !== 'all' ||
-         store.filterUser !== 'all'
+         store.filterManufacturer !== 'all'
 })
 
 function setTypeFilter(type) {
@@ -376,10 +407,20 @@ function formatDate(date) {
 }
 
 function getModelName(item) {
-  // Le nom du modèle dépend du type d'item
   const typeLower = item._itemtype.toLowerCase()
   const field = `${typeLower}models_id`
-  return item[field]?.name || null
+  return fieldValue(item[field])
+}
+
+function fieldValue(field) {
+  if (!field) return '—'
+  if (typeof field === 'string') return field
+  if (typeof field === 'object') return field.name || '—'
+  return '—'
+}
+
+function openFullImage(url) {
+  window.open(url, '_blank')
 }
 </script>
 
@@ -958,6 +999,8 @@ function getModelName(item) {
   margin: 0 0 12px 0;
   font-size: 15px;
   color: #1a1a2e;
+  display: flex;
+  align-items: center;
 }
 
 .comment-box {
@@ -968,6 +1011,97 @@ function getModelName(item) {
   color: #1a1a2e;
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════
+   GALERIE IMAGES
+═══════════════════════════════════════════════ */
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.image-card {
+  background: #f9fafb;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.image-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.image-card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  cursor: zoom-in;
+  display: block;
+  background: #fff;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee;
+  color: #c00;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
+.image-name {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  word-break: break-all;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.no-images {
+  background: #f9fafb;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.loading-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.spinner-small {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #1e3a8a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.count-badge {
+  background: #1e3a8a;
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  margin-left: 8px;
 }
 
 /* ═══════════════════════════════════════════════

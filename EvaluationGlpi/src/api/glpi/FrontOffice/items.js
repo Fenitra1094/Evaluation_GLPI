@@ -51,11 +51,103 @@ export async function getItemsByType(itemtype, { start = 0, limit = 1000 } = {})
   }
 }
 
+
+export async function getItemDocuments(itemtype, itemId) {
+  await ensureSession()
+
+
+  try {
+    const url = `/${itemtype}/${itemId}/Document_Item`
+    const linksResponse = await glpiApi.get(url)
+
+    const links = Array.isArray(linksResponse.data) ? linksResponse.data : []
+
+    if (links.length === 0) return []
+
+    const documents = []
+    for (const link of links) {
+      try {
+        const docId = typeof link.documents_id === 'object'
+          ? link.documents_id.id
+          : link.documents_id
+
+        // Métadonnées du document
+        const docResponse = await glpiApi.get(`/Document/${docId}`)
+        const doc = docResponse.data
+
+        // ✅ NOUVELLE LOGIQUE : on filtre par MIME ou extension
+        const isImageByMime = doc.mime && doc.mime.startsWith('image/')
+        const displayName = doc.filename || doc.name || `document-${docId}`
+        const isImageByExt = /\.(png|jpe?g|gif|webp|bmp)$/i.test(displayName)
+
+        if (!isImageByMime && !isImageByExt) {
+          continue
+        }
+
+        // Télécharger le binaire
+        const blobUrl = await fetchDocumentBlob(docId)
+
+        documents.push({
+          id:       doc.id,
+          name:     displayName,
+          filename: doc.filename,
+          mime:     doc.mime,
+          url:      blobUrl,
+        })
+      } catch (e) {
+        console.error(`❌ Erreur traitement document`, e)
+      }
+    }
+
+    
+    return documents
+  } catch (error) {
+    console.error('❌ Erreur getItemDocuments', error)
+    return []
+  }
+}
+
+
+async function fetchDocumentBlob(docId) {
+  const baseUrl      = import.meta.env.VITE_GLPI_BASE_URL
+  const sessionToken = sessionStorage.getItem('glpi_session_token')
+  const appToken     = import.meta.env.VITE_GLPI_APP_TOKEN
+
+  try {
+    // ✅ AJOUTER ?alt=media pour forcer le téléchargement du fichier
+    const response = await fetch(`${baseUrl}/Document/${docId}?alt=media`, {
+      headers: {
+        'App-Token':     appToken,
+        'Session-Token': sessionToken,
+        'Accept':        'application/octet-stream',
+      },
+    })
+
+    if (!response.ok) {
+      console.error(`Erreur téléchargement document ${docId}: HTTP ${response.status}`)
+      return null
+    }
+
+    const blob = await response.blob()
+
+    if (blob.size === 0) {
+      console.warn(`Document ${docId} : blob vide`)
+      return null
+    }
+
+
+    return URL.createObjectURL(blob)
+  } catch (error) {
+    console.error(`Erreur fetchDocumentBlob(${docId})`, error)
+    return null
+  }
+} 
+
 /**
  * Récupère TOUS les items de TOUS les types
  * Avec progression
  */
-export async function getAllItems(onProgress = null) {
+export async function fetchAllTypesItems(onProgress = null) {
   const allItems = []
 
   for (let i = 0; i < ITEM_TYPES.length; i++) {
@@ -88,7 +180,7 @@ export async function getAllItems(onProgress = null) {
 /**
  * Récupère un item spécifique par type et ID
  */
-export async function getItemById(itemtype, id) {
+export async function fetchItemById(itemtype, id) {
   await ensureSession()
 
   try {

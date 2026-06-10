@@ -175,7 +175,7 @@
 
             <!-- DESCRIPTION -->
             <section class="content-section">
-              <h3>📝 Description</h3>
+              <h3>📝 Description ichiiiii</h3>
               <div class="content-box" v-html="store.selectedTicket.content || '<em>Aucune description</em>'"></div>
             </section>
 
@@ -184,7 +184,7 @@
               <div class="spinner-small"></div>
               <span>Chargement des éléments liés...</span>
             </div>
-
+            
             <!-- ÉLÉMENTS ASSOCIÉS -->
             <section v-else-if="store.ticketItems.length > 0" class="content-section">
               <h3>

@@ -1,7 +1,7 @@
 import { glpiApi } from './core'
 import { ensureSession } from './session'
 
-export async function getAllItems(resource) {
+export async function getAllItems(resource, includeDeleted = false) {
   await ensureSession()
 
   try {
@@ -9,6 +9,7 @@ export async function getAllItems(resource) {
       params: {
         range: '0-9999',
         only_id: true,
+        ...(includeDeleted && { is_deleted: true }),
       },
     })
     return Array.isArray(response.data) ? response.data : []
@@ -36,8 +37,11 @@ export async function getItemById(resource, id) {
 }
 
 export async function countItems(resource) {
-  const items = await getAllItems(resource)
-  return items.length
+  const [active, deleted] = await Promise.all([
+    getAllItems(resource, false),
+    getAllItems(resource, true),
+  ])
+  return active.length + deleted.length
 }
 
 /**
@@ -70,13 +74,27 @@ export async function deleteItem(resource, id) {
     params: { force_purge: true },
   })
 }
-/**
- * Supprime TOUS les éléments d'une ressource
- * 🚀 OPTIMISÉ avec parallélisme par batch
- */
+
+// =========================================================
+// purgeResource : récupère ACTIFS + CORBEILLE
+// =========================================================
 export async function purgeResource(resource, onProgress = null) {
-  const items = await getAllItems(resource)
+  // 1. Récupérer les actifs ET la corbeille
+  const [active, deleted] = await Promise.all([
+    getAllItems(resource, false),
+    getAllItems(resource, true),
+  ])
+
+  // 2. Combiner sans doublons
+  const allIds = new Set([
+    ...active.map(i => i.id),
+    ...deleted.map(i => i.id),
+  ])
+
+  const items = Array.from(allIds).map(id => ({ id }))
   const total = items.length
+
+  console.log(`🗑️ purgeResource(${resource}) : ${active.length} actifs + ${deleted.length} corbeille = ${total} total`)
 
   if (total === 0) {
     return { resource, total: 0, success: 0, failed: 0 }
@@ -84,19 +102,15 @@ export async function purgeResource(resource, onProgress = null) {
 
   let success = 0
   let failed  = 0
-
-  // 🚀 PARALLÉLISME : 10 DELETE en même temps
   const BATCH_SIZE = 10
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE)
 
-    // ✅ Lance les 10 DELETE en parallèle
     const results = await Promise.allSettled(
       batch.map(item => deleteItem(resource, item.id))
     )
 
-    // Compter les résultats
     results.forEach((result) => {
       if (result.status === 'fulfilled') {
         success++
@@ -106,7 +120,6 @@ export async function purgeResource(resource, onProgress = null) {
       }
     })
 
-    // Notifier la progression
     if (onProgress) {
       onProgress({
         resource,

@@ -52,7 +52,7 @@ export async function getTickets({
 /** Recupere un ticket par Id avec tous les details */
 export async function getTicketById(id){
     await ensureSession()
-    const reponse = await glpiApi.get(`/Ticket/${id}`, {
+    const response = await glpiApi.get(`/Ticket/${id}`, {
         params: {expand_dropdowns: true},
     })
     return response.data
@@ -64,7 +64,7 @@ export async function getTicketItems(ticketId){
     await ensureSession()
 
     try{
-        const response = await glpi.get(`/Ticket/${ticketId}/Iem_Ticket`,{params: { expand_dropdowns: true },
+        const response = await glpiApi.get(`/Ticket/${ticketId}/Item_Ticket`,{params: { expand_dropdowns: true },
         })
         return Array.isArray(response.data) ? response.data : []
     }
@@ -75,7 +75,7 @@ export async function getTicketItems(ticketId){
 
 /** Recupere les couts d'un tickets */
 
-export async function   getTicketCosts(tickeId){
+export async function   getTicketCosts(ticketId){
     await ensureSession()
     try{
         const response = await glpiApi.get(`/Ticket/${ticketId}/TicketCost`)
@@ -102,3 +102,74 @@ export async function   getTicketCosts(tickeId){
         }
     }
 
+// =========================================================
+// CREATION D'UN TICKET
+
+
+export async function createTicket(data){
+    await ensureSession()
+    const response = await glpiApi.post('/Ticket',{
+        input: {
+            name :data.name,
+            content : data.content,
+            type : Number(data.type) ||  1,
+            status : Number(data.status) || 1 ,
+            urgency : Number(data.urgency) || 3,
+            impact : Number(data.impact) || 3 ,
+            priority : Number(data.priority) || 3,
+            date : data.date || null,
+            entities_id : 0, 
+        }
+    })
+
+    const result = Array.isArray(response.data) ? response.data[0] : response.data
+    return result.id
+}
+
+// =========================================================
+// LIER UN ITEM À UN TICKET
+// =========================================================
+
+export async function linkItemToTicket(ticketId, itemType, itemId){
+    await ensureSession()
+    const response = await glpiApi.post('/Item_Ticket', {
+        input: {
+            tickets_id : ticketId,
+            itemtype : itemType,
+            items_id : itemId,
+        }
+    })
+    const result = Array.isArray(response.data) ? response.data[0] : response.data
+    return result.id
+}
+
+// =========================================================
+// CRÉER UN COÛT POUR UN TICKET
+// =========================================================
+export async function createTicketCost(ticketId, cost) {
+  await ensureSession()
+
+  const response = await glpiApi.post('/TicketCost', {
+    input: {
+      tickets_id    : ticketId,
+      name          : cost.name          || 'Coût',
+      actiontime    : Number(cost.actiontime) || 0,
+      cost_time     : Number(cost.cost_time)  || 0,
+      cost_fixed    : Number(cost.cost_fixed) || 0,
+      cost_material : Number(cost.cost_material) || 0,
+      begin_date    : cost.begin_date   || new Date().toISOString().slice(0, 10),
+      end_date      : cost.end_date     || new Date().toISOString().slice(0, 10),
+      entities_id   : 0,
+    },
+  })
+
+  const result = Array.isArray(response.data) ? response.data[0] : response.data
+  return result.id
+}
+
+
+// =========================================================
+// MISE À JOUR DU STATUT D'UN TICKET
+// =========================================================
+
+export async function updateTicketStatus()

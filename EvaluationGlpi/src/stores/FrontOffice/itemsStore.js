@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import GlpiClient from '@/api/glpiClient'
-import { ITEM_TYPES } from '@/api/glpi/FrontOffice/items'
+import { ITEM_TYPES,getItemDocuments } from '@/api/glpi/FrontOffice/items'
 
 export const useItemsStore = defineStore('items', () => {
 
@@ -18,11 +18,14 @@ export const useItemsStore = defineStore('items', () => {
   const filterStatus   = ref('all')
   const filterLocation = ref('all')
   const filterManufacturer = ref('all')
-  const filterUser     = ref('all')
 
   // ---- TRI ----
   const sortBy    = ref('name')
   const sortOrder = ref('asc')
+
+  // ---- STATE ----
+const selectedItemDocuments = ref([])
+const loadingDocuments = ref(false)
 
   // ---- PAGINATION ----
   const currentPage = ref(1)
@@ -30,93 +33,102 @@ export const useItemsStore = defineStore('items', () => {
 
   // ---- GETTERS ----
 
-  /**
-   * Liste des valeurs uniques pour les filtres
-   */
-  const uniqueStatuses = computed(() => {
-    const set = new Set()
-    items.value.forEach(i => {
-      if (i.states_id?.name) set.add(i.states_id.name)
-    })
-    return ['all', ...Array.from(set).sort()]
-  })
+  // ---- GETTERS pour les filtres ----
 
-  const uniqueLocations = computed(() => {
-    const set = new Set()
-    items.value.forEach(i => {
-      if (i.locations_id?.name) set.add(i.locations_id.name)
-    })
-    return ['all', ...Array.from(set).sort()]
-  })
-
-  const uniqueManufacturers = computed(() => {
-    const set = new Set()
-    items.value.forEach(i => {
-      if (i.manufacturers_id?.name) set.add(i.manufacturers_id.name)
-    })
-    return ['all', ...Array.from(set).sort()]
-  })
-
-  const uniqueUsers = computed(() => {
-    const set = new Set()
-    items.value.forEach(i => {
-      if (i.users_id?.name) set.add(i.users_id.name)
-    })
-    return ['all', ...Array.from(set).sort()]
-  })
-
-  /**
-   * Liste filtrée
-   */
-  const filteredItems = computed(() => {
-    let list = items.value
-
-    // Recherche textuelle (sur plusieurs champs)
-    if (search.value) {
-      const s = search.value.toLowerCase()
-      list = list.filter(i =>
-        i.name?.toLowerCase().includes(s) ||
-        i.serial?.toLowerCase().includes(s) ||
-        i.otherserial?.toLowerCase().includes(s) ||
-        String(i.id).includes(s)
-      )
-    }
-
-    // Filtre type
-    if (filterType.value !== 'all') {
-      list = list.filter(i => i._itemtype === filterType.value)
-    }
-
-    // Filtre statut
-    if (filterStatus.value !== 'all') {
-      list = list.filter(i => i.states_id?.name === filterStatus.value)
-    }
-
-    // Filtre location
-    if (filterLocation.value !== 'all') {
-      list = list.filter(i => i.locations_id?.name === filterLocation.value)
-    }
-
-    // Filtre fabricant
-    if (filterManufacturer.value !== 'all') {
-      list = list.filter(i => i.manufacturers_id?.name === filterManufacturer.value)
-    }
-
-    // Filtre utilisateur
-    if (filterUser.value !== 'all') {
-      list = list.filter(i => i.users_id?.name === filterUser.value)
-    }
-
-    // Tri
-    list = [...list].sort((a, b) => {
-      const aVal = getSortValue(a, sortBy.value)
-      const bVal = getSortValue(b, sortBy.value)
-      const result = aVal > bVal ? 1 : aVal < bVal ? -1 : 0
-      return sortOrder.value === 'asc' ? result : -result
+    const uniqueStatuses = computed(() => {
+      const set = new Set()
+      items.value.forEach(i => {
+        const val = getFieldValue(i.states_id)
+        if (val) set.add(val)
+      })
+      return ['all', ...Array.from(set).sort()]
     })
 
-    return list
-  })
+    const uniqueLocations = computed(() => {
+      const set = new Set()
+      items.value.forEach(i => {
+        const val = getFieldValue(i.locations_id)
+        if (val) set.add(val)
+      })
+      return ['all', ...Array.from(set).sort()]
+    })
+
+    const uniqueManufacturers = computed(() => {
+      const set = new Set()
+      items.value.forEach(i => {
+        const val = getFieldValue(i.manufacturers_id)
+        if (val) set.add(val)
+      })
+      return ['all', ...Array.from(set).sort()]
+    })
+
+    const uniqueUsers = computed(() => {
+      const set = new Set()
+      items.value.forEach(i => {
+        const val = getFieldValue(i.users_id)
+        if (val) set.add(val)
+      })
+      return ['all', ...Array.from(set).sort()]
+    })
+
+    // ---- HELPER pour gérer string OU objet ----
+    function getFieldValue(field) {
+      if (!field) return null
+      if (typeof field === 'string') return field
+      if (typeof field === 'object') return field.name || null
+      return null
+    }
+
+
+    const filteredItems = computed(() => {
+        let list = items.value
+
+        if (search.value) {
+          const s = search.value.toLowerCase()
+          list = list.filter(i =>
+            i.name?.toLowerCase().includes(s) ||
+            i.serial?.toLowerCase().includes(s) ||
+            i.otherserial?.toLowerCase().includes(s) ||
+            String(i.id).includes(s)
+          )
+        }
+
+        if (filterType.value !== 'all') {
+          list = list.filter(i => i._itemtype === filterType.value)
+        }
+
+        // ✅ Utilise getFieldValue
+        if (filterStatus.value !== 'all') {
+          list = list.filter(i => getFieldValue(i.states_id) === filterStatus.value)
+        }
+        if (filterLocation.value !== 'all') {
+          list = list.filter(i => getFieldValue(i.locations_id) === filterLocation.value)
+        }
+        if (filterManufacturer.value !== 'all') {
+          list = list.filter(i => getFieldValue(i.manufacturers_id) === filterManufacturer.value)
+        }
+
+        list = [...list].sort((a, b) => {
+          const aVal = getSortValue(a, sortBy.value)
+          const bVal = getSortValue(b, sortBy.value)
+          const result = aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+          return sortOrder.value === 'asc' ? result : -result
+        })
+
+        return list
+      })
+
+      // ---- HELPER tri ----
+      function getSortValue(item, field) {
+        if (field === 'type')         return item._itemtype || ''
+        if (field === 'name')         return item.name || ''
+        if (field === 'serial')       return item.serial || ''
+        if (field === 'status')       return getFieldValue(item.states_id) || ''
+        if (field === 'location')     return getFieldValue(item.locations_id) || ''
+        if (field === 'manufacturer') return getFieldValue(item.manufacturers_id) || ''
+        if (field === 'user')         return getFieldValue(item.users_id) || ''
+        return item[field] || ''
+      }
 
   /**
    * Items pour la page courante
@@ -144,27 +156,30 @@ export const useItemsStore = defineStore('items', () => {
     return stats
   })
 
-  // ---- HELPERS ----
-
-  function getSortValue(item, field) {
-    if (field === 'type')         return item._itemtype || ''
-    if (field === 'name')         return item.name || ''
-    if (field === 'serial')       return item.serial || ''
-    if (field === 'status')       return item.states_id?.name || ''
-    if (field === 'location')     return item.locations_id?.name || ''
-    if (field === 'manufacturer') return item.manufacturers_id?.name || ''
-    if (field === 'user')         return item.users_id?.name || ''
-    return item[field] || ''
-  }
+ 
 
   // ---- ACTIONS ----
+async function selectItem(item) {
+  selectedItem.value = item
+  selectedItemDocuments.value = []
+  loadingDocuments.value = true
+
+  try {
+    
+    selectedItemDocuments.value = await getItemDocuments(item._itemtype, item.id)
+  } catch (err) {
+    console.error('Erreur chargement documents', err)
+  } finally {
+    loadingDocuments.value = false
+  }
+}
 
   async function loadItems() {
     loading.value = true
     error.value = null
 
     try {
-      items.value = await GlpiClient.getAllItems((progress) => {
+      items.value = await GlpiClient.fetchAllTypesItems((progress) => {
         loadingLabel.value = `Chargement ${progress.label}... (${progress.current}/${progress.total})`
       })
     } catch (err) {
@@ -175,9 +190,9 @@ export const useItemsStore = defineStore('items', () => {
     }
   }
 
-  function selectItem(item) {
-    selectedItem.value = item
-  }
+  // function selectItem(item) {
+  //   selectedItem.value = item
+  // }
 
   function closeItem() {
     selectedItem.value = null
@@ -189,7 +204,6 @@ export const useItemsStore = defineStore('items', () => {
     filterStatus.value = 'all'
     filterLocation.value = 'all'
     filterManufacturer.value = 'all'
-    filterUser.value = 'all'
     currentPage.value = 1
   }
 
@@ -212,7 +226,7 @@ export const useItemsStore = defineStore('items', () => {
     // state
     items, selectedItem, loading, loadingLabel, error,
     search, filterType, filterStatus, filterLocation,
-    filterManufacturer, filterUser,
+    filterManufacturer,
     sortBy, sortOrder, currentPage, perPage,
     // getters
     filteredItems, paginatedItems, totalPages,
@@ -221,5 +235,7 @@ export const useItemsStore = defineStore('items', () => {
     // actions
     loadItems, selectItem, closeItem,
     resetFilters, setSorting, goToPage,
+     selectedItemDocuments,
+  loadingDocuments,
   }
 })

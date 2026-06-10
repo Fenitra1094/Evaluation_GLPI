@@ -18,8 +18,15 @@ const router = createRouter({
           component: () => import('@/views/FrontOffice/ItemsView.vue'),
           meta: { title: 'Éléments' },
         },
+        {
+          path: 'createTicket',
+          name: 'createTicket',
+          component: () => import('@/views/FrontOffice/TicketCreateView.vue'),
+          meta: { title: 'Creer Ticket' },
+        },
       ]
     },
+    
 
     
     // ═══════════════════════════════════════════
