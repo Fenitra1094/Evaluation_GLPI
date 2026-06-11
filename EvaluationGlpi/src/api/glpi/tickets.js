@@ -174,7 +174,7 @@ export async function createTicketCost(ticketId, cost) {
 
 export async function updateTicketStatus(ticketId, newStatus, extraFields = {}){
     await ensureSession()
-    const response = await glpiApi.put(`/Tickets/${ticketId}`, {
+    const response = await glpiApi.put(`/Ticket/${ticketId}`, {
         input : {
             id : ticketId,
             status: Number(newStatus),

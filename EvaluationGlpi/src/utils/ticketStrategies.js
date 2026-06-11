@@ -17,7 +17,8 @@ export const TICKET_TYPE_MAPPING = {
 export const TICKET_STATUS_MAPPING = {
   'New'        : 1,
   'Nouveau'    : 1,
-  'Processing' : 2,
+  'In progress' : 2,
+  'In progress (assigned)' : 2,
   'En cours'   : 2,
   'Planned'    : 3,
   'Planifié'   : 3,

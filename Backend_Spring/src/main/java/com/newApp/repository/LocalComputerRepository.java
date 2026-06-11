@@ -1,6 +1,6 @@
-package com.newapp.repository;
+package com.newApp.repository;
 
-import com.newapp.entity.LocalComputer;
+import com.newApp.entity.LocalComputer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

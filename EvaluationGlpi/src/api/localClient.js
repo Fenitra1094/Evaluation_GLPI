@@ -50,6 +50,54 @@ const LocalClient = {
   async deleteAll() {
     await localApi.delete('/local/computers')
   },
+
+
+    // ======================
+  // KANBAN SETTINGS
+  // ======================
+  async getKanbanSettings() {
+    const response = await localApi.get('/local/kanban-settings')
+    return response.data
+  },
+
+  async updateKanbanSetting(id, data) {
+    const response = await localApi.put(`/local/kanban-settings/${id}`, data)
+    return response.data
+  },
+
+  async resetKanbanSettings() {
+    const response = await localApi.post('/local/kanban-settings/reset')
+    return response.data
+  },
+
+  // ======================
+  // LANGUAGES (CRUD)
+  // ======================
+  async getLanguages() {
+    const response = await localApi.get('/local/languages')
+    return response.data
+  },
+
+  async getActiveLanguages() {
+    const response = await localApi.get('/local/languages/active')
+    return response.data
+  },
+
+  async createLanguage(data) {
+    const response = await localApi.post('/local/languages', data)
+    return response.data
+  },
+
+  async updateLanguage(code, data) {
+    const response = await localApi.put(`/local/languages/${code}`, data)
+    return response.data
+  },
+
+  async deleteLanguage(code) {
+    await localApi.delete(`/local/languages/${code}`)
+  },
+
+  
 }
 
 export default LocalClient

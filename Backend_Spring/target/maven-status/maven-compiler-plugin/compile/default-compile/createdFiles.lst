@@ -1,7 +1,7 @@
-com\newapp\Application.class
-com\newapp\repository\LocalComputerRepository.class
-com\newapp\entity\LocalComputer.class
-com\newapp\controller\LocalComputerController.class
-com\newapp\config\CorsConfig.class
-com\newapp\service\LocalComputerService.class
-com\newapp\dto\LocalComputerDto.class
+com\newApp\controller\LocalComputerController.class
+com\newApp\repository\LocalComputerRepository.class
+com\newApp\Application.class
+com\newApp\entity\LocalComputer.class
+com\newApp\service\LocalComputerService.class
+com\newApp\dto\LocalComputerDto.class
+com\newApp\config\CorsConfig.class

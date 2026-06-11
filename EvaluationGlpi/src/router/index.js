@@ -62,6 +62,18 @@ const router = createRouter({
           redirect: '/admin/dashboard',
         },
         {
+          path: 'kanban-settings',
+          name: 'kanban-settings',
+          component: () => import('@/views/kanbanSetting/KanbanSettingView.vue'),
+          meta: { title: 'Personnalisation Kanban' },
+        },
+        {
+          path: 'languages',
+          name: 'languages',
+          component: () => import('@/views/kanbanSetting/LanguageView.vue'),
+          meta: { title: 'Gestion des langues' },
+        },
+        {
           path: 'tickets',
           name: 'tickets',
           component: () => import('@/views/TicketsView.vue'),

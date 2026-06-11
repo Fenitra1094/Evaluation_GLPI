@@ -163,12 +163,12 @@ async function getAllItems(resource) {
 // =========================================================
 
 export const TICKET_STATUS_LABELS = {
-  1: { label: 'Nouveau',    color: 'blue',   icon: '🔵' },
-  2: { label: 'En cours',   color: 'orange', icon: '🟠' },
+  1: { label: 'New',    color: 'blue',   icon: '🔵' },
+  2: { label: 'In progress',   color: 'orange', icon: '🟠' },
   3: { label: 'Planifié',   color: 'purple', icon: '🟣' },
   4: { label: 'En attente', color: 'yellow', icon: '🟡' },
   5: { label: 'Résolu',     color: 'green',  icon: '🟢' },
-  6: { label: 'Clos',       color: 'gray',   icon: '⚫' },
+  6: { label: 'Closed',       color: 'gray',   icon: '⚫' },
 }
 
 export const TICKET_TYPE_LABELS = {

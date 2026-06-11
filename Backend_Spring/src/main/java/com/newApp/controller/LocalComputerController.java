@@ -1,8 +1,8 @@
-package com.newapp.controller;
+package com.newApp.controller;
 
-import com.newapp.dto.LocalComputerDto;
-import com.newapp.entity.LocalComputer;
-import com.newapp.service.LocalComputerService;
+import com.newApp.dto.LocalComputerDto;
+import com.newApp.entity.LocalComputer;
+import com.newApp.service.LocalComputerService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

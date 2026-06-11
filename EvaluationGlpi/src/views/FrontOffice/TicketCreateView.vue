@@ -57,12 +57,9 @@
           <div class="field">
             <label>Statut</label>
             <select v-model.number="store.form.status">
-              <option :value="1">🔵 Nouveau</option>
-              <option :value="2">🟠 En cours (attribué)</option>
-              <option :value="3">🟣 En cours (planifié)</option>
-              <option :value="4">🟡 En attente</option>
-              <option :value="5">🟢 Résolu</option>
-              <option :value="6">⚫ Clos</option>
+              <option :value="1">🔵 New</option>
+              <option :value="2">🟠 In progress</option>
+              <option :value="6">⚫ Closed</option>
             </select>
           </div>
 
@@ -111,6 +108,121 @@
           </div>
         </div>
       </section>
+      <!-- ===== SECTION : ACTEURS (comme GLPI) ===== -->
+<section class="form-card">
+  <h2>
+    👥 Acteurs
+    <span class="badge">{{ store.totalActors }}</span>
+  </h2>
+
+  <!-- DEMANDEURS -->
+  <div class="actor-group">
+    <div class="actor-header">
+      <label>
+        <span class="actor-icon">👤</span>
+        Demandeur(s)
+      </label>
+      <button
+        type="button"
+        class="btn-add-mini"
+        @click="openActorSelector(1)"
+      >
+        + Ajouter
+      </button>
+    </div>
+
+    <div v-if="store.actors.requesters.length === 0" class="empty-mini">
+      Aucun demandeur
+    </div>
+
+    <div v-else class="actor-chips">
+      <div
+        v-for="user in store.actors.requesters"
+        :key="user.id"
+        class="actor-chip chip-requester"
+      >
+        <span>👤 {{ formatUserName(user) }}</span>
+        <button
+          type="button"
+          class="chip-remove"
+          @click="store.removeActor(user.id, 1)"
+        >✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TECHNICIENS ASSIGNÉS -->
+  <div class="actor-group">
+    <div class="actor-header">
+      <label>
+        <span class="actor-icon">🔧</span>
+        Technicien(s) assigné(s)
+      </label>
+      <button
+        type="button"
+        class="btn-add-mini"
+        @click="openActorSelector(2)"
+      >
+        + Ajouter
+      </button>
+    </div>
+
+    <div v-if="store.actors.assignees.length === 0" class="empty-mini">
+      Aucun technicien
+    </div>
+
+    <div v-else class="actor-chips">
+      <div
+        v-for="user in store.actors.assignees"
+        :key="user.id"
+        class="actor-chip chip-assignee"
+      >
+        <span>🔧 {{ formatUserName(user) }}</span>
+        <button
+          type="button"
+          class="chip-remove"
+          @click="store.removeActor(user.id, 2)"
+        >✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OBSERVATEURS -->
+  <div class="actor-group">
+    <div class="actor-header">
+      <label>
+        <span class="actor-icon">👁️</span>
+        Observateur(s)
+      </label>
+      <button
+        type="button"
+        class="btn-add-mini"
+        @click="openActorSelector(3)"
+      >
+        + Ajouter
+      </button>
+    </div>
+
+    <div v-if="store.actors.watchers.length === 0" class="empty-mini">
+      Aucun observateur
+    </div>
+
+    <div v-else class="actor-chips">
+      <div
+        v-for="user in store.actors.watchers"
+        :key="user.id"
+        class="actor-chip chip-watcher"
+      >
+        <span>👁️ {{ formatUserName(user) }}</span>
+        <button
+          type="button"
+          class="chip-remove"
+          @click="store.removeActor(user.id, 3)"
+        >✕</button>
+      </div>
+    </div>
+  </div>
+</section>
 
       <!-- ===== SECTION 2 : ÉLÉMENTS ASSOCIÉS ===== -->
       <section class="form-card">
@@ -276,6 +388,67 @@
       </div>
     </transition>
 
+    <!-- ===== MODAL SÉLECTION ACTEURS ===== -->
+<transition name="fade">
+  <div v-if="showActorSelector" class="modal-overlay" @click.self="showActorSelector = false">
+    <div class="modal-content">
+      <div class="modal-header" :class="actorHeaderClass">
+        <h2>
+          <span v-if="selectedActorType === 1">👤 Sélectionner les demandeurs</span>
+          <span v-else-if="selectedActorType === 2">🔧 Sélectionner les techniciens</span>
+          <span v-else-if="selectedActorType === 3">👁️ Sélectionner les observateurs</span>
+        </h2>
+        <button class="btn-close" @click="showActorSelector = false">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <input
+          v-model="searchUser"
+          type="text"
+          placeholder="🔍 Rechercher un utilisateur..."
+          class="search-input"
+        />
+
+        <div v-if="store.loadingUsers" class="loading-small">
+          Chargement des utilisateurs...
+        </div>
+
+        <div v-else class="items-grid">
+          <div
+            v-for="user in filteredUsers"
+            :key="user.id"
+            class="item-option"
+            :class="{ selected: isUserSelected(user) }"
+            @click="toggleActor(user)"
+          >
+            <span class="opt-icon">
+              {{ selectedActorType === 1 ? '👤' : selectedActorType === 2 ? '🔧' : '👁️' }}
+            </span>
+            <div class="opt-info">
+              <strong>{{ formatUserName(user) }}</strong>
+              <small>@{{ user.name }} • #{{ user.id }}</small>
+            </div>
+            <span v-if="isUserSelected(user)" class="check">✓</span>
+          </div>
+        </div>
+
+        <div v-if="filteredUsers.length === 0 && !store.loadingUsers" class="empty-small">
+          Aucun utilisateur trouvé
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span class="info">
+          {{ currentActorList.length }} {{ actorTypeLabel }} sélectionné(s)
+        </span>
+        <button class="btn btn-primary" @click="showActorSelector = false">
+          Terminer
+        </button>
+      </div>
+    </div>
+  </div>
+</transition>
+
   </div>
 </template>
 
@@ -284,11 +457,17 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTicketCreateStore } from '@/stores/FrontOffice/ticketCreateStore'
 
+
 const router = useRouter()
 const store  = useTicketCreateStore()
 
 const showSelector  = ref(false)
 const searchSelector = ref('')
+
+// ✅ NOUVEAU : modal acteurs
+const showActorSelector = ref(false)
+const selectedActorType = ref(null)
+const searchUser = ref('')
 
 onMounted(() => {
   store.reset()
@@ -317,6 +496,63 @@ function toggleItem(item) {
     store.addItem(item)
   }
 }
+
+
+// ============ ACTEURS ============
+async function openActorSelector(type) {
+  selectedActorType.value = type
+  showActorSelector.value = true
+  searchUser.value = ''
+
+  if (store.availableUsers.length === 0) {
+    await store.loadAvailableUsers()
+  }
+}
+
+const filteredUsers = computed(() => {
+  if (!searchUser.value) return store.availableUsers
+  const s = searchUser.value.toLowerCase()
+  return store.availableUsers.filter(u =>
+    u.name?.toLowerCase().includes(s) ||
+    u.firstname?.toLowerCase().includes(s) ||
+    u.realname?.toLowerCase().includes(s)
+  )
+})
+
+const currentActorList = computed(() => {
+  if (selectedActorType.value === 1) return store.actors.requesters
+  if (selectedActorType.value === 2) return store.actors.assignees
+  if (selectedActorType.value === 3) return store.actors.watchers
+  return []
+})
+
+const actorTypeLabel = computed(() => {
+  return { 1: 'demandeur(s)', 2: 'technicien(s)', 3: 'observateur(s)' }[selectedActorType.value] || ''
+})
+
+const actorHeaderClass = computed(() => {
+  return { 1: 'bg-blue', 2: 'bg-orange', 3: 'bg-purple' }[selectedActorType.value] || ''
+})
+
+function isUserSelected(user) {
+  return currentActorList.value.some(a => a.id === user.id)
+}
+
+function toggleActor(user) {
+  if (isUserSelected(user)) {
+    store.removeActor(user.id, selectedActorType.value)
+  } else {
+    store.addActor(user, selectedActorType.value)
+  }
+}
+
+function formatUserName(user) {
+  if (user.firstname || user.realname) {
+    return `${user.firstname || ''} ${user.realname || ''}`.trim() + ` (${user.name})`
+  }
+  return user.name
+}
+
 
 async function openItemSelector() {
   showSelector.value = true
@@ -766,4 +1002,125 @@ function goBack() {
     grid-template-columns: 1fr;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   SECTION ACTEURS
+═══════════════════════════════════════════════ */
+.actor-group {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.actor-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.actor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.actor-header label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.actor-icon {
+  font-size: 18px;
+}
+
+.btn-add-mini {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-add-mini:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.empty-mini {
+  background: #f9fafb;
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.actor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.actor-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.chip-requester {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.chip-assignee {
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: #fdba74;
+}
+
+.chip-watcher {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: #c4b5fd;
+}
+
+.chip-remove {
+  background: rgba(0,0,0,0.1);
+  border: none;
+  color: inherit;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chip-remove:hover {
+  background: rgba(0,0,0,0.2);
+}
+
+/* Couleurs modal selon type acteur */
+.bg-blue   { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+.bg-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.bg-purple { background: linear-gradient(135deg, #8b5cf6, #6d28d9); } 
+
 </style>

@@ -1,8 +1,8 @@
-package com.newapp.service;
+package com.newApp.service;
 
-import com.newapp.dto.LocalComputerDto;
-import com.newapp.entity.LocalComputer;
-import com.newapp.repository.LocalComputerRepository;
+import com.newApp.dto.LocalComputerDto;
+import com.newApp.entity.LocalComputer;
+import com.newApp.repository.LocalComputerRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

@@ -46,6 +46,8 @@ const menuItems = [
   { path: '/admin/tickets',    icon: '🎫', label: 'Tickets' },
   { path: '/admin/csv-import', icon: '📥', label: 'Import CSV' },
   { path: '/admin/reset',      icon: '🗑️', label: 'Réinitialisation' },
+  { path: '/admin/kanban-settings',      icon: '🎨', label: 'kanban-settings' },
+  { path: '/admin/languages',      icon: '🌍', label: 'languages' },
 ]
 
 function logout() {
