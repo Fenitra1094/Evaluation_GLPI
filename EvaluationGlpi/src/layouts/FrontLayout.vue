@@ -25,6 +25,12 @@
           </router-link>
         </nav>
 
+        <nav class="nav-menu">
+          <router-link to="/kanban" class="nav-link">
+            🏠 Kanban
+          </router-link>
+        </nav>
+
         <!-- Bouton Admin -->
         <button class="btn-admin" @click="goToAdmin">
           🔒 Back Office

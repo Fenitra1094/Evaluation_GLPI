@@ -47,6 +47,10 @@ const GlpiClient = {
   createTicket       : tickets.createTicket,        // ← AJOUTÉ
   linkItemToTicket   : tickets.linkItemToTicket,    // ← AJOUTÉ
   createTicketCost   : tickets.createTicketCost, 
+  updateTicketStatus   : tickets.updateTicketStatus,
+  addTicketActor       : tickets.addTicketActor,
+  createTicketSolution : tickets.createTicketSolution,
+  addTicketFollowup    : tickets.addTicketFollowup,
 
    // ITEMS
   getItemsByType : items.getItemsByType,

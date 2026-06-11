@@ -172,4 +172,70 @@ export async function createTicketCost(ticketId, cost) {
 // MISE À JOUR DU STATUT D'UN TICKET
 // =========================================================
 
-export async function updateTicketStatus()
+export async function updateTicketStatus(ticketId, newStatus, extraFields = {}){
+    await ensureSession()
+    const response = await glpiApi.put(`/Tickets/${ticketId}`, {
+        input : {
+            id : ticketId,
+            status: Number(newStatus),
+            ...extraFields,
+        }
+    })
+    return response.data
+
+}
+
+// =========================================================
+// ASSIGNER UN ACTEUR (USER) À UN TICKET
+// type : 1 = Demandeur, 2 = Assigné, 3 = Observateur
+// =========================================================
+export async function addTicketActor(ticketId, userId, type = 2) {
+  await ensureSession()
+
+  const response = await glpiApi.post('/Ticket_User', {
+    input: {
+      tickets_id : ticketId,
+      users_id   : userId,
+      type       : type,
+    },
+  })
+
+  return response.data
+} 
+
+// =========================================================
+// AJOUTER UNE SOLUTION À UN TICKET
+// =========================================================
+export async function createTicketSolution(ticketId, content) {
+  await ensureSession()
+
+  const response = await glpiApi.post('/ITILSolution', {
+    input: {
+      itemtype : 'Ticket',
+      items_id : ticketId,
+      content  : content,
+    },
+  })
+
+  return response.data
+} 
+
+
+// =========================================================
+// AJOUTER UN COMMENTAIRE / SUIVI
+// =========================================================
+export async function addTicketFollowup(ticketId, content) {
+  await ensureSession()
+
+  const response = await glpiApi.post('/ITILFollowup', {
+    input: {
+      itemtype : 'Ticket',
+      items_id : ticketId,
+      content  : content,
+    },
+  })
+
+  return response.data
+} 
+
+
