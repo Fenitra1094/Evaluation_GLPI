@@ -1,0 +1,13 @@
+mettre dans template dans le balise exemple <div></div>
+. v-if : condition if <div v-if="count >5">
+. v-else : <div else>
+. v-show : pour cacher <div v-show ="count >5">, tsy miala otran if fa cacher fotciny
+. v-on:click : / @click , bouton , <bouton @click="incrementer(la fonction)"></bouton>
+. : dynamique 
+    - :style= "{color : count > 5 ? 'red' : 'green' }"
+    - :class = "{active : count > 5}"
+. v-html : manala ny balise html 
+        ex dans script on 
+        const firstName = <span>oui</span>
+        pour l'enlever dans template 
+        <div v-html= " firstName "></div>

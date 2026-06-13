@@ -38,10 +38,16 @@
       <div
         v-for="col in columns"
         :key="col.id"
-        class="kanban-column"
-        :style="{ borderTopColor: col.color }"
+        :style="{
+          borderTopColor: col.color,
+          background: hexToRgba(col.color, 0.05)   /* ⭐ Fond léger coloré */
+        }"
       >
-        <div class="column-header">
+        <div class="column-header"
+            :style="{
+            background: col.color,
+            color: '#fff'
+          }">
           <span class="col-title">
             {{ col.icon }} {{ settingsStore.getLabel(col) }}
           </span>
@@ -59,7 +65,10 @@
             v-for="ticket in store.ticketsByColumn[col.columnKey]"
             :key="ticket.id"
             class="ticket-card"
-            :style="{ borderLeftColor: col.color }"
+            :style="{
+              borderLeft: `5px solid ${col.color}`,      /* ⭐ Bordure épaisse */
+              background: hexToRgba(col.color, 0.08)     /* ⭐ Fond teinté */
+            }"
             @click="ticketsStore.selectTicket(ticket)"
           >
             <div class="ticket-id">#{{ ticket.id }}</div>
@@ -216,6 +225,10 @@
                   </option>
                 </select>
               </div>
+              <button class="btn" @click="cancelTransition">Annuler</button>
+              <button class="btn btn-primary" @click="confirmTransition">
+                ✅ Confirmer
+              </button>
             </template>
 
             <template v-if="dialog.type === 'solution'">
@@ -223,14 +236,20 @@
                 Pour clore ce ticket, veuillez décrire la <strong>solution apportée</strong>.
               </p>
               <div class="field">
-                <label>Solution / Résolution <span class="req">*</span></label>
-                <textarea
-                  v-model="dialog.solution"
+                <label>Cout <span class="req">*</span></label>
+                <input type="number" v-model="dialog.cout" value="" >
+                <!-- <textarea
+                  v-model="dialog.cout"
                   rows="5"
                   placeholder="Décrivez comment le problème a été résolu..."
                   required
-                ></textarea>
+                ></textarea> -->
+                
               </div>
+              <button class="btn" @click="cancelTransition">Annuler</button>
+              <button class="btn btn-primary" @click="confirmTransition">
+                ✅ Confirmer
+              </button>
             </template>
 
             <template v-if="dialog.type === 'reopen'">
@@ -239,20 +258,16 @@
               </p>
               <div class="field">
                 <label>Raison de la réouverture (optionnel)</label>
-                <textarea
-                  v-model="dialog.comment"
-                  rows="4"
-                  placeholder="Ex: Le problème est réapparu..."
-                ></textarea>
+                <input type="number" v-model="dialog.pourcentage">
+                  
               </div>
-            </template>
-
-            <div class="modal-actions">
-              <button class="btn" @click="cancelTransition">Annuler</button>
+              <button @click="annulation">Annulation</button>
               <button class="btn btn-primary" @click="confirmTransition">
                 ✅ Confirmer
               </button>
-            </div>
+            </template>
+
+            
 
           </div>
         </div>
@@ -327,7 +342,7 @@ async function onDrop(event, targetColumn) {
   if (oldStatus === 2 && newStatus === 6) {
     return openDialog(ticket, oldStatus, newStatus, 'solution', true)
   }
-  if (oldStatus === 2 && newStatus === 1) {
+  if (oldStatus === 6 && newStatus === 2) {
     return openDialog(ticket, oldStatus, newStatus, 'reopen', false)
   }
   if (oldStatus === 6) {
@@ -351,6 +366,10 @@ function openDialog(ticket, oldStatus, newStatus, type, required) {
   dialog.solution   = ''
   dialog.comment    = ''
 }
+async function annulation() {
+  const annuler = await store.annulation(dialog.ticketId)
+  closeDialog()
+}
 
 async function confirmTransition() {
   if (dialog.required) {
@@ -358,16 +377,17 @@ async function confirmTransition() {
       alert('Veuillez sélectionner un utilisateur')
       return
     }
-    if (dialog.type === 'solution' && !dialog.solution.trim()) {
-      alert('Veuillez saisir une solution')
+    if (dialog.type === 'solution' && dialog.cout === 0 ) {
+      alert('Veuillez saisir le cout ')
       return
     }
   }
 
   const extra = {}
   if (dialog.userId)   extra.userId   = dialog.userId
-  if (dialog.solution) extra.solution = dialog.solution
+  if (dialog.cout) extra.cout = dialog.cout
   if (dialog.comment)  extra.comment  = dialog.comment
+  if (dialog.pourcentage)  extra.pourcentage  = dialog.pourcentage
 
   const ok = await store.changeStatus(dialog.ticketId, dialog.newStatus, extra)
   if (!ok) await store.loadTickets()
@@ -421,6 +441,25 @@ function formatDate(date) {
 
 function changeLanguage(code) {
   langStore.setCurrentLang(code)
+}
+
+// ============ HELPER COULEUR ============
+/**
+ * Convertit un hex #ff0000 en rgba(255, 0, 0, alpha)
+ * Utilisé pour créer un fond transparent à partir de la couleur
+ */
+function hexToRgba(hex, alpha = 1) {
+  if (!hex) return `rgba(100, 116, 139, ${alpha})`
+
+  // Enlever le #
+  const cleaned = hex.replace('#', '')
+
+  // Convertir en RGB
+  const r = parseInt(cleaned.substring(0, 2), 16)
+  const g = parseInt(cleaned.substring(2, 4), 16)
+  const b = parseInt(cleaned.substring(4, 6), 16)
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 </script>
 

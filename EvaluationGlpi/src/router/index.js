@@ -30,6 +30,12 @@ const router = createRouter({
           component: () => import('@/views/FrontOffice/KanbanView.vue'),
           meta: { title: 'Creer Ticket' },
         },
+        {
+          path: '/costs-by-type',
+          name: 'costs-by-type',
+          component: () => import('@/views/FrontOffice/CostsByTypeView.vue'),
+          meta: { title: 'Coûts par Type' }
+        }
       ]
     },
     

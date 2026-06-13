@@ -17,9 +17,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const assetsWithItems = computed(() =>
     assets.value.filter(a => a.count > 0)
   )
-
+ 
   const topAssets = computed(() =>
-    [...assets.value].sort((a, b) => b.count - a.count).slice(0, 5)
+    [...assets.value]
+    .filter(a => a.count > 0)        // ✅ AJOUT : exclure les 0
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
   )
 
   // ---- ACTIONS ----

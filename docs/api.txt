@@ -1,0 +1,30 @@
+2. Les 4 méthodes HTTP
+
+// LIRE plusieurs
+glpiApi.get('/Ticket', { params: { range: '0-50' } })
+
+// LIRE un seul
+glpiApi.get('/Ticket/42')
+
+// CRÉER
+glpiApi.post('/Ticket', {
+  input: { name: 'Test', content: 'Description' }
+})
+
+// MODIFIER
+glpiApi.put('/Ticket/42', {
+  input: { id: 42, status: 6 }
+})
+
+// SUPPRIMER
+glpiApi.delete('/Ticket/42', {
+  params: { force_purge: true }
+})
+
+
+// RECUPERER l'ID APRES CREATION
+
+    GLPI retourne soit un objet, soit un tableau :
+    const response = await glpiApi.post('/Ticket', { input: data })
+    const result = Array.isArray(response.data) ? response.data[0] : response.data
+    const newId = result.id

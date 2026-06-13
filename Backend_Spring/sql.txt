@@ -1,0 +1,60 @@
+# Aller dans le dossier
+cd backend-springboot/data
+
+# Ouvrir la base
+sqlite3 local.db
+
+# ============ COMMANDES SQLITE ============
+.tables                    # Liste les tables
+.schema kanban_settings    # Voir la structure d'une table
+.headers on                # Afficher les noms de colonnes
+.mode column               # Affichage joli
+
+# ============ REQUÊTES SQL ============
+SELECT * FROM languages;
+SELECT * FROM kanban_settings;
+
+INSERT INTO languages (code, name, flag, is_active, is_default)
+VALUES ('es', 'Español', '🇪🇸', 1, 0);
+
+DELETE FROM languages WHERE code = 'es';
+
+# ============ QUITTER ============
+.quit
+
+
+#### Méthode A : `PRAGMA` (SQL)
+```sql
+PRAGMA table_info(cout);
+
+
+CREATE TABLE produits (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom         TEXT NOT NULL,
+  prix        REAL DEFAULT 0,
+  stock       INTEGER DEFAULT 0,
+  description TEXT,
+  date_ajout  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  actif       INTEGER DEFAULT 1,
+  categorie   TEXT CHECK(categorie IN ('A', 'B', 'C'))
+);
+
+ 3. CREATE TABLE avec relations (FOREIGN KEY)
+SQL
+
+-- Table parent
+CREATE TABLE categories (
+  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom  TEXT NOT NULL
+);
+
+-- Table enfant avec relation
+CREATE TABLE produits (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom          TEXT NOT NULL,
+  categorie_id INTEGER,
+  FOREIGN KEY (categorie_id) REFERENCES categories(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+); 
+

@@ -97,6 +97,32 @@ const LocalClient = {
     await localApi.delete(`/local/languages/${code}`)
   },
 
+  //  async  createTicketSolution(ticketId, content) {
+  //     const response = await localApi.post('/local/cout/creer', {
+  //             ticket: Number(ticketId),
+  //             cout: Number(content)
+          
+  //     })
+  //     return response.data
+  //   }
+// ✅ APRÈS - corrigé
+async createTicketSolution(ticketId, montant) {
+  const response = await localApi.post('/local/cout/creer', {
+    ticket: Number(ticketId),    // ⭐ Forcer en nombre
+    cout: Number(montant)         // ⭐ Forcer en nombre
+  })
+  return response.data
+},
+
+
+async getAllCouts() {
+  const response = await localApi.get('/local/cout')
+  return response.data
+},
+
+async deleteCout(id) {
+  await localApi.delete(`/local/cout/annulation/${id}`)
+}
   
 }
 

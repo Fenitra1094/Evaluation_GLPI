@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import GlpiClient from '@/api/glpiClient'
+import LocalApi from '@/api/localClient'
 
 export const KANBAN_COLUMNS = [
   { id: 'new',      label: 'Nouveau',     icon: '🔵', color: 'blue',   status: 1 },
@@ -66,6 +67,13 @@ export const useKanbanStore = defineStore('kanban', () => {
       availableUsers.value = []
     }
   }
+  
+  async function annulation(ticketId){
+    try{
+        await LocalApi.deleteCout(ticketId) 
+    }
+     catch (e) { console.warn('⚠️ Erreur acteur', e.message) }
+  }
 
   async function changeStatus(ticketId, newStatus, extra = {}) {
     try {
@@ -76,13 +84,17 @@ export const useKanbanStore = defineStore('kanban', () => {
         catch (e) { console.warn('⚠️ Erreur acteur', e.message) }
       }
 
-      if (extra.solution) {
-        try { await GlpiClient.createTicketSolution(ticketId, extra.solution) }
+      if (extra.cout) {
+        try { await LocalApi.createTicketSolution(ticketId, extra.cout) }
         catch (e) { console.warn('⚠️ Erreur solution', e.message) }
       }
 
       if (extra.comment) {
         try { await GlpiClient.addTicketFollowup(ticketId, extra.comment) }
+        catch (e) { console.warn('⚠️ Erreur commentaire', e.message) }
+      }
+      if (extra.pourcentage) {
+        try { await LocalApi.addPourcentage(ticketId, extra.pourcentage) }
         catch (e) { console.warn('⚠️ Erreur commentaire', e.message) }
       }
 
@@ -111,6 +123,6 @@ export const useKanbanStore = defineStore('kanban', () => {
     allTickets, loading, error, availableUsers,
     ticketsByColumn, totalByColumn,
     loadTickets, loadUsers,
-    changeStatus, createSimpleTicket,
+    changeStatus, createSimpleTicket,annulation,
   }
 })

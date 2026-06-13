@@ -1,32 +1,544 @@
-A proteger :
-    🔒 OBLIGATOIRES (sinon GLPI ne fonctionne plus) :
-   glpi_configs
-   glpi_users
-   glpi_profiles
-   glpi_profilerights
-   glpi_profiles_users
-   glpi_entities
-   glpi_apiclients
-   glpi_crontasks
-   glpi_authldaps
-   glpi_authmails
-   glpi_useremails
-   glpi_displaypreferences
-   glpi_states
-   glpi_notifications
-   glpi_notificationtemplates
-   glpi_notificationtemplatetranslations
-   glpi_notificationtargets
-   glpi_requesttypes
-   glpi_taskcategories
-   glpi_solutiontypes
-   glpi_documentcategories
-   glpi_documenttypes
-   glpi_calendars
-   glpi_calendarsegments
-   glpi_holidays
-   glpi_itilcategories
-   glpi_dashboards_dashboards
-   glpi_dashboards_items
-   glpi_dashboards_rights
-   glpi_dashboards_filters
+<template>
+  <div class="costs-view">
+
+    <!-- ===== HEADER ===== -->
+    <header class="page-header">
+      <div class="header-left">
+        <div class="header-icon">💰</div>
+        <div>
+          <h1>Coûts par Type d'Élément</h1>
+          <p>Répartition des coûts entre les différents types d'éléments</p>
+        </div>
+      </div>
+      <button class="btn-refresh" @click="store.loadAll()" :disabled="store.loading">
+        🔄 Actualiser
+      </button>
+    </header>
+
+    <!-- ===== LOADING ===== -->
+    <div v-if="store.loading" class="loading-card">
+      <div class="spinner"></div>
+      <p>{{ store.loadingLabel }}</p>
+    </div>
+
+    <!-- ===== ERREUR ===== -->
+    <div v-else-if="store.error" class="error-card">
+      ❌ {{ store.error }}
+    </div>
+
+    <template v-else>
+
+      <!-- ===== KPI ===== -->
+      <div class="kpi-grid">
+        <div class="kpi-card kpi-glpi">
+          <div class="kpi-icon">📊</div>
+          <div>
+            <div class="kpi-label">Total GLPI</div>
+            <div class="kpi-value">{{ formatMoney(store.totalGlpi) }}</div>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-super">
+          <div class="kpi-icon">⭐</div>
+          <div>
+            <div class="kpi-label">Total SuperCoûts</div>
+            <div class="kpi-value">{{ formatMoney(store.totalSuperCout) }}</div>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-total">
+          <div class="kpi-icon">💎</div>
+          <div>
+            <div class="kpi-label">GRAND TOTAL</div>
+            <div class="kpi-value">{{ formatMoney(store.grandTotal) }}</div>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-count">
+          <div class="kpi-icon">📦</div>
+          <div>
+            <div class="kpi-label">Éléments</div>
+            <div class="kpi-value">{{ store.totalItems }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TABLEAU AGRÉGÉ PAR TYPE ===== -->
+      <div v-if="sortedTypes.length === 0" class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>Aucun coût trouvé</h3>
+        <p>Aucun ticket avec coût n'est lié à des éléments.</p>
+      </div>
+
+      <div v-else class="types-table">
+        <div class="table-header">
+          <span class="col-rank">#</span>
+          <span class="col-type">Type d'élément</span>
+          <span class="col-count">Items</span>
+          <span class="col-tickets">Tickets</span>
+          <span class="col-glpi">Coût GLPI</span>
+          <span class="col-super">SuperCoût</span>
+          <span class="col-total">TOTAL</span>
+          <span class="col-percent">% du total</span>
+        </div>
+
+        <div
+          v-for="(type, index) in sortedTypes"
+          :key="type.type"
+          class="table-row"
+        >
+          <span class="col-rank">
+            <span class="rank-badge" :class="`rank-${index + 1}`">
+              #{{ index + 1 }}
+            </span>
+          </span>
+
+          <span class="col-type">
+            <span class="type-icon">{{ getIcon(type.type) }}</span>
+            <strong>{{ getLabel(type.type) }}</strong>
+            <small>{{ type.type }}</small>
+          </span>
+
+          <span class="col-count">
+            <span class="count-pill">{{ type.count }}</span>
+          </span>
+
+          <span class="col-tickets">
+            <span class="ticket-pill">{{ type.ticketsCount }}</span>
+          </span>
+
+          <span class="col-glpi">{{ formatMoney(type.coutGlpi) }}</span>
+          <span class="col-super">{{ formatMoney(type.superCout) }}</span>
+
+          <span class="col-total">
+            <strong>{{ formatMoney(type.total) }}</strong>
+          </span>
+
+          <span class="col-percent">
+            <div class="percent-wrapper">
+              <div class="percent-bar">
+                <div
+                  class="percent-fill"
+                  :style="{ width: getPercent(type.total) + '%' }"
+                ></div>
+              </div>
+              <span class="percent-label">{{ getPercent(type.total) }}%</span>
+            </div>
+          </span>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="table-footer">
+          <span>TOTAL GÉNÉRAL ({{ store.totalItems }} éléments)</span>
+          <div class="footer-stats">
+            <span class="footer-stat footer-glpi">
+              GLPI : {{ formatMoney(store.totalGlpi) }}
+            </span>
+            <span class="footer-stat footer-super">
+              Super : {{ formatMoney(store.totalSuperCout) }}
+            </span>
+            <strong class="footer-grand">{{ formatMoney(store.grandTotal) }}</strong>
+          </div>
+        </div>
+      </div>
+
+    </template>
+
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted } from 'vue'
+import { useCostsByTypeStore } from '@/stores/FrontOffice/costsByTypeStore'
+
+const store = useCostsByTypeStore()
+
+onMounted(() => {
+  store.loadAll()
+})
+
+// ============ COMPUTED ============
+const sortedTypes = computed(() => {
+  return [...store.costsByType].sort((a, b) => b.total - a.total)
+})
+
+// ============ HELPERS ============
+function formatMoney(value) {
+  const n = parseFloat(value) || 0
+  return `${n.toFixed(2)} €`
+}
+
+function getPercent(value) {
+  if (!store.grandTotal) return 0
+  return Math.round((value / store.grandTotal) * 100)
+}
+
+function getIcon(itemtype) {
+  const icons = {
+    'Computer'        : '💻',
+    'Monitor'         : '🖥️',
+    'Printer'         : '🖨️',
+    'Phone'           : '📞',
+    'NetworkEquipment': '🌐',
+    'Peripheral'      : '⌨️',
+    'Rack'            : '🗄️',
+    'Software'        : '💿',
+    'Enclosure'       : '📦',
+    'PDU'             : '🔌',
+    'Cartridge'       : '🖌️',
+    'Consumable'      : '📋',
+    'Cable'           : '🔗',
+  }
+  return icons[itemtype] || '📦'
+}
+
+function getLabel(itemtype) {
+  const labels = {
+    'Computer'        : 'Ordinateurs',
+    'Monitor'         : 'Écrans',
+    'Printer'         : 'Imprimantes',
+    'Phone'           : 'Téléphones',
+    'NetworkEquipment': 'Équipements réseau',
+    'Peripheral'      : 'Périphériques',
+    'Rack'            : 'Baies',
+    'Software'        : 'Logiciels',
+    'Enclosure'       : 'Châssis',
+    'PDU'             : 'PDU',
+    'Cartridge'       : 'Cartouches',
+    'Consumable'      : 'Consommables',
+    'Cable'           : 'Câbles',
+  }
+  return labels[itemtype] || itemtype
+}
+</script>
+
+<style scoped>
+/* LAYOUT */
+.costs-view {
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* HEADER */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #064e3b, #10b981);
+  border-radius: 20px;
+  padding: 25px 35px;
+  color: #fff;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.header-icon {
+  font-size: 40px;
+  background: rgba(255,255,255,0.15);
+  width: 70px;
+  height: 70px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-header h1 { margin: 0 0 4px 0; font-size: 26px; }
+.page-header p  { margin: 0; opacity: 0.9; font-size: 14px; }
+
+.btn-refresh {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-refresh:hover:not(:disabled) {
+  background: rgba(255,255,255,0.3);
+}
+
+/* LOADING / EMPTY / ERROR */
+.loading-card, .empty-state, .error-card {
+  background: #fff;
+  padding: 80px 20px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.error-card {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-icon {
+  font-size: 80px;
+  opacity: 0.4;
+  margin-bottom: 15px;
+}
+
+/* KPI GRID */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.kpi-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border-left: 4px solid;
+  transition: transform 0.2s;
+}
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.kpi-glpi  { border-color: #3b82f6; }
+.kpi-super { border-color: #8b5cf6; }
+.kpi-total { border-color: #10b981; }
+.kpi-count { border-color: #f59e0b; }
+
+.kpi-icon {
+  font-size: 32px;
+  background: #f9fafb;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+}
+
+.kpi-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.kpi-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin-top: 4px;
+}
+
+/* TABLEAU */
+.types-table {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.table-header, .table-row {
+  display: grid;
+  grid-template-columns: 50px 1.5fr 80px 80px 120px 120px 140px 180px;
+  gap: 12px;
+  padding: 16px 20px;
+  align-items: center;
+}
+
+.table-header {
+  background: linear-gradient(135deg, #064e3b, #10b981);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.table-row:hover { background: #f0fdf4; }
+
+/* RANK BADGE */
+.rank-badge {
+  display: inline-block;
+  background: #f3f4f6;
+  color: #1a1a2e;
+  padding: 6px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.rank-badge.rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; }
+.rank-badge.rank-2 { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #fff; }
+.rank-badge.rank-3 { background: linear-gradient(135deg, #fed7aa, #fb923c); color: #fff; }
+
+/* TYPE */
+.col-type {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.type-icon {
+  font-size: 28px;
+}
+.col-type strong {
+  color: #1a1a2e;
+  font-size: 14px;
+  display: block;
+}
+.col-type small {
+  color: #6b7280;
+  font-size: 11px;
+  display: block;
+  margin-top: 2px;
+}
+
+/* PILLS */
+.count-pill {
+  background: #fef3c7;
+  color: #854d0e;
+  padding: 5px 14px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ticket-pill {
+  background: #ede9fe;
+  color: #5b21b6;
+  padding: 5px 14px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* MONTANTS */
+.col-glpi {
+  color: #1e40af;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.col-super {
+  color: #5b21b6;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.col-total strong {
+  color: #065f46;
+  font-size: 15px;
+  background: #d1fae5;
+  padding: 6px 14px;
+  border-radius: 10px;
+}
+
+/* BARRE DE POURCENTAGE */
+.percent-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.percent-bar {
+  flex: 1;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.percent-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 100px;
+  transition: width 0.5s ease;
+}
+
+.percent-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a2e;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* FOOTER */
+.table-footer {
+  background: linear-gradient(135deg, #064e3b, #10b981);
+  color: #fff;
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.footer-stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.footer-stat {
+  background: rgba(255,255,255,0.15);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.footer-grand {
+  background: #fff;
+  color: #064e3b;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1200px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .table-header, .table-row {
+    grid-template-columns: 1fr 1fr 1fr;
+    font-size: 12px;
+  }
+  .col-rank, .col-count, .col-tickets, .col-percent {
+    display: none;
+  }
+}
+</style>
+
+
+   rehefa mamindra makany @termine de misy de misy voir dialogue , manisy cout vaovao tehirizina makany @SQLite 
+   
+
+   cout total ticket misy monitor , phone, ...
+   manamboatra page vaovao misy resaka cout de ny ao anatiny efa tao, de le cout montant vo napidirina 
+   raha bedebe de mizara @isany raha ticket 1 lie element maromaro de zarainy le cout

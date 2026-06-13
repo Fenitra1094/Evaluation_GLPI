@@ -15,3 +15,19 @@ tsy mety
   -consumable
   -Baies
   -cables
+
+
+
+
+
+
+
+  Get-ChildItem E:\GitHub\Evaluation_GLPI -Recurse -File | Where-Object {$_.LastWriteTime -gt (Get-Date).AddMinutes(-30)} | Sort-Object LastWriteTime -Descending | Select-Object LastWriteTime, FullName
+
+
+  ny ticket efa closed afaka ahemotra In progress, boite de dialogue mipoitra , misy bouton annulation(midika fa diso izy nandefa), rehefa annulation de fafana le cout nampidirina ,
+  anulation, fafana le superCout nataony farany 
+
+  choix 1 : ouverture mameno champ 1 en pourcentage , misy cout ouverture 10% 
+  cout ouverture pourcentage par rapport anle cout farany cout en plus 
+10% anle cout farany 95 ->9.5 ny Cout ouverture 

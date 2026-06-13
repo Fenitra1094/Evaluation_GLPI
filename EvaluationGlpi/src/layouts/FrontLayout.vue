@@ -30,6 +30,11 @@
             🏠 Kanban
           </router-link>
         </nav>
+        <nav class="nav-menu">
+          <router-link to="/costs-by-type" class="nav-link">
+            🏠 Cout
+          </router-link>
+        </nav>
 
         <!-- Bouton Admin -->
         <button class="btn-admin" @click="goToAdmin">

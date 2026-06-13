@@ -80,7 +80,7 @@
 
         <div class="assets-grid">
           <div
-            v-for="asset in store.assets"
+            v-for="asset in store.assetsWithItems"
             :key="asset.key"
             class="asset-card"
             :class="[`color-${asset.color}`, { empty: asset.count === 0 }]"

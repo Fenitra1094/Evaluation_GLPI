@@ -206,19 +206,22 @@ export async function addTicketActor(ticketId, userId, type = 2) {
 // =========================================================
 // AJOUTER UNE SOLUTION À UN TICKET
 // =========================================================
-export async function createTicketSolution(ticketId, content) {
-  await ensureSession()
+// export async function createTicketSolution(ticketId, content) {
+//   await ensureSession()
 
-  const response = await glpiApi.post('/ITILSolution', {
-    input: {
-      itemtype : 'Ticket',
-      items_id : ticketId,
-      content  : content,
-    },
-  })
+  
 
-  return response.data
-} 
+//   const response = await localApi.post('/local/cout', {
+//     input: {
+//        : 'Ticket',
+//       items_id : ticketId,
+//       content  : content,
+//     },
+//   })
+
+//   return response.data
+// } 
+ 
 
 
 // =========================================================
