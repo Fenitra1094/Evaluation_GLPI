@@ -237,7 +237,7 @@
               </p>
               <div class="field">
                 <label>Cout <span class="req">*</span></label>
-                <input type="number" v-model="dialog.cout" value="" >
+                <input type="number" v-model.number="dialog.cout" value="" >
                 <!-- <textarea
                   v-model="dialog.cout"
                   rows="5"
@@ -258,7 +258,7 @@
               </p>
               <div class="field">
                 <label>Raison de la réouverture (optionnel)</label>
-                <input type="number" v-model="dialog.pourcentage">
+                <input type="number" v-model.number="dialog.pourcentage">
                   
               </div>
               <button @click="annulation">Annulation</button>
@@ -314,7 +314,11 @@ const totalCosts = computed(() => {
 const dialog = reactive({
   show: false, ticketId: null, ticketName: '',
   oldStatus: null, newStatus: null, type: null,
-  required: false, userId: null, solution: '', comment: '',
+  required: false,
+  userId: null,
+  cout: 0,           // ⭐ AJOUT
+  pourcentage: 0,    // ⭐ AJOUT
+  comment: '',
 })
 
 // ============ LIFECYCLE ============
@@ -343,10 +347,10 @@ async function onDrop(event, targetColumn) {
     return openDialog(ticket, oldStatus, newStatus, 'solution', true)
   }
   if (oldStatus === 6 && newStatus === 2) {
-    return openDialog(ticket, oldStatus, newStatus, 'reopen', false)
+    return openDialog(ticket, oldStatus, newStatus, 'reopen', true)
   }
   if (oldStatus === 6) {
-    return openDialog(ticket, oldStatus, newStatus, 'reopen', false)
+    return openDialog(ticket, oldStatus, newStatus, 'reopen', true)
   }
 
   // Transition directe sans dialogue
@@ -363,11 +367,31 @@ function openDialog(ticket, oldStatus, newStatus, type, required) {
   dialog.type       = type
   dialog.required   = required
   dialog.userId     = null
+  dialog.cout       = 0          // ⭐ AJOUT
+  dialog.pourcentage = 0         // ⭐ AJOUT
   dialog.solution   = ''
   dialog.comment    = ''
 }
+
 async function annulation() {
-  const annuler = await store.annulation(dialog.ticketId)
+  console.log('🗑️ Annulation : suppression du dernier coût du ticket #' + dialog.ticketId)
+  
+  try {
+    // 1. Supprimer le DERNIER coût du ticket
+    await store.annulation(dialog.ticketId)
+    console.log('✅ Dernier coût supprimé')
+    
+    // 2. Changer le statut quand même (Closed → In progress par exemple)
+    const ok = await store.changeStatus(dialog.ticketId, dialog.newStatus, {})
+    
+    if (!ok) {
+      await store.loadTickets()
+    }
+  } catch (err) {
+    console.error('❌ Erreur annulation:', err)
+    await store.loadTickets()
+  }
+  
   closeDialog()
 }
 
@@ -377,17 +401,27 @@ async function confirmTransition() {
       alert('Veuillez sélectionner un utilisateur')
       return
     }
-    if (dialog.type === 'solution' && dialog.cout === 0 ) {
-      alert('Veuillez saisir le cout ')
+    if (dialog.type === 'solution' && (!dialog.cout || dialog.cout <= 0)) {
+      alert('Veuillez saisir le coût')
       return
     }
   }
 
   const extra = {}
-  if (dialog.userId)   extra.userId   = dialog.userId
-  if (dialog.cout) extra.cout = dialog.cout
-  if (dialog.comment)  extra.comment  = dialog.comment
-  if (dialog.pourcentage)  extra.pourcentage  = dialog.pourcentage
+  if (dialog.userId) extra.userId = dialog.userId
+  
+  // ⭐ Filtrer par TYPE de dialog
+  if (dialog.type === 'solution' && dialog.cout > 0) {
+    extra.cout = Number(dialog.cout)
+  }
+  
+  if (dialog.type === 'reopen' && dialog.pourcentage > 0) {
+    extra.pourcentage = Number(dialog.pourcentage)
+  }
+  
+  if (dialog.comment) extra.comment = dialog.comment
+
+  console.log('🎯 Type:', dialog.type, '| Extra:', extra)  // ⭐ DEBUG
 
   const ok = await store.changeStatus(dialog.ticketId, dialog.newStatus, extra)
   if (!ok) await store.loadTickets()

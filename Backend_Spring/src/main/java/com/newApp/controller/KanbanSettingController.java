@@ -30,4 +30,14 @@ public class KanbanSettingController {
         service.resetToDefaults();
         return ResponseEntity.ok("Réinitialisé");
     }
+
+    @DeleteMapping
+    public ResponseEntity<String> deleteAll() {
+        long count = service.getAll().size();
+        // On utilise déjà /reset qui supprime + recrée les défauts
+        service.resetToDefaults();
+        return ResponseEntity.ok(count + " settings réinitialisés");
+    }
+
+    
 }

@@ -13,46 +13,40 @@ const localApi = axios.create({
 // =========================================================
 const LocalClient = {
 
+
+
   // ======================
   // LOCAL COMPUTERS
   // ======================
-
-  /** Liste tous les ordinateurs locaux */
   async getAll() {
     const response = await localApi.get('/local/computers')
     return response.data
   },
 
-  /** Récupère un ordinateur par id */
   async getById(id) {
     const response = await localApi.get(`/local/computers/${id}`)
     return response.data
   },
 
-  /** Crée un nouvel ordinateur local */
   async create(data) {
     const response = await localApi.post('/local/computers', data)
     return response.data
   },
 
-  /** Modifie un ordinateur local */
   async update(id, data) {
     const response = await localApi.put(`/local/computers/${id}`, data)
     return response.data
   },
 
-  /** Supprime un ordinateur local */
   async delete(id) {
     await localApi.delete(`/local/computers/${id}`)
   },
 
-  /** Supprime tous les ordinateurs locaux */
   async deleteAll() {
     await localApi.delete('/local/computers')
   },
 
-
-    // ======================
+  // ======================
   // KANBAN SETTINGS
   // ======================
   async getKanbanSettings() {
@@ -96,34 +90,48 @@ const LocalClient = {
   async deleteLanguage(code) {
     await localApi.delete(`/local/languages/${code}`)
   },
-
-  //  async  createTicketSolution(ticketId, content) {
-  //     const response = await localApi.post('/local/cout/creer', {
-  //             ticket: Number(ticketId),
-  //             cout: Number(content)
-          
-  //     })
-  //     return response.data
-  //   }
-// ✅ APRÈS - corrigé
-async createTicketSolution(ticketId, montant) {
-  const response = await localApi.post('/local/cout/creer', {
-    ticket: Number(ticketId),    // ⭐ Forcer en nombre
-    cout: Number(montant)         // ⭐ Forcer en nombre
-  })
-  return response.data
-},
-
-
-async getAllCouts() {
-  const response = await localApi.get('/local/cout')
-  return response.data
-},
-
-async deleteCout(id) {
-  await localApi.delete(`/local/cout/annulation/${id}`)
-}
   
+  // ⭐ AJOUT : Supprimer TOUTES les langues
+  async deleteAllLanguages() {
+    const response = await localApi.delete('/local/languages')
+    return response.data
+  },
+  // ======================
+  // COUTS (SQLite)
+  // ======================
+
+  // Créer un coût SAISI (passage à Closed)
+  async createTicketSolution(ticketId, montant) {
+    const response = await localApi.post('/local/cout/creer', {
+      ticket: Number(ticketId),
+      cout: Number(montant)
+    })
+    return response.data
+  },
+
+  // Réouverture avec pourcentage (REOUVERTURE)
+  async addPourcentage(ticketId, pourcentage) {
+    const response = await localApi.post(`/local/cout/reouverture/${ticketId}`, {
+      pourcentage: Number(pourcentage)
+    })
+    return response.data
+  },
+
+  // Récupérer tous les coûts
+  async getAllCouts() {
+    const response = await localApi.get('/local/cout')
+    return response.data
+  },
+
+  // Supprimer le dernier coût d'un ticket
+  async deleteCout(ticketId) {
+    await localApi.delete(`/local/cout/ticket/${ticketId}/last`)
+  },
+
+  async deleteAllCouts() {
+    const response = await localApi.delete('/local/cout')
+    return response.data
+  },
 }
 
 export default LocalClient

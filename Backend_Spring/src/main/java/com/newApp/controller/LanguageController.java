@@ -50,4 +50,11 @@ public class LanguageController {
         repository.deleteById(code);
         return ResponseEntity.ok("Langue supprimée");
     }
+    
+    @DeleteMapping
+    public ResponseEntity<String> deleteAll() {
+        long count = repository.count();
+        repository.deleteAll();
+        return ResponseEntity.ok(count + " langues supprimées");
+    }
 }

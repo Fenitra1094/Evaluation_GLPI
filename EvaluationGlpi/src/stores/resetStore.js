@@ -1,80 +1,38 @@
+
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import GlpiClient from '@/api/glpiClient'
+import LocalClient from '@/api/localClient'   // ⭐ AJOUT
 
 // =========================================================
 // WHITELIST DE PROTECTION
 // =========================================================
-// Ces ressources ne seront JAMAIS supprimées, même par
-// l'action "Tout réinitialiser". Elles sont critiques au
-// fonctionnement de GLPI (authentification, droits, config).
-// =========================================================
 const PROTECTED_RESOURCES = new Set([
-  // Utilisateurs et droits
-  // 'User',
-  'Profile',
-  'ProfileRight',
-  'Profile_User',
- // 'Group',
-  'Group_User',
-  'UserEmail',
-
-  // Entités et configuration
-  'Entity',
-  'Config',
-  'DisplayPreference',
-
-  // API et sessions
-  'APIClient',
-  'Session',
-  'Log',
-
-  // Authentification externe
-  'AuthLDAP',
-  'AuthMail',
-
-  // Tâches planifiées
-  'CronTask',
-
-  // Notifications (templates système)
-  'Notification',
-  'NotificationTemplate',
-  'NotificationTarget',
-
-  // Catégories et types système
-  'RequestType',
-  'TaskCategory',
-  'SolutionType',
-  'DocumentCategory',
-  'DocumentType',
-  'ITILCategory',
-
-  // Calendriers et jours fériés
-  'Calendar',
-  'CalendarSegment',
-  'Holiday',
-
-  // Tableaux de bord
-  'Dashboard',
-
-  // 🆕 Relations système
-  'DomainRelation',
+  'Profile', 'ProfileRight', 'Profile_User',
+  'Group_User', 'UserEmail',
+  'Entity', 'Config', 'DisplayPreference',
+  'APIClient', 'Session', 'Log',
+  'AuthLDAP', 'AuthMail', 'CronTask',
+  'Notification', 'NotificationTemplate', 'NotificationTarget',
+  'RequestType', 'TaskCategory', 'SolutionType',
+  'DocumentCategory', 'DocumentType', 'ITILCategory',
+  'Calendar', 'CalendarSegment', 'Holiday',
+  'Dashboard', 'DomainRelation',
 ])
 
 const PROTECTED_USERS = new Set([
-  'glpi',         // ← Ton compte admin
-  'glpi-system',  // ← Compte interne GLPI (logs, cron, notifications)
+  'glpi',
+  'glpi-system',
 ])
 
+// =========================================================
+// FONCTION : Nettoyer les utilisateurs (sauf système)
+// =========================================================
 async function purgeUsersExceptSystem(onProgress = null) {
-  // 🚀 1. Récupérer TOUS les users en UNE seule requête
   console.log('👤 Chargement de tous les users...')
   await GlpiClient.ensureSession()
 
-  // Récupère tout d'un coup avec leurs noms (pas seulement les IDs)
   const allUsers = await GlpiClient.getAllItemsWithDetails('User')
-
-  // 🚀 2. Filtrer ceux à supprimer (instantané, en mémoire)
   const usersToDelete = allUsers.filter(u => !PROTECTED_USERS.has(u.name))
 
   console.log(`👤 ${usersToDelete.length} users à supprimer sur ${allUsers.length}`)
@@ -83,9 +41,8 @@ async function purgeUsersExceptSystem(onProgress = null) {
     return { resource: 'User', total: 0, success: 0, failed: 0 }
   }
 
-  // 🚀 3. Supprimer en PARALLÈLE par batch de 10
   let success = 0
-  let failed  = 0
+  let failed = 0
   const BATCH_SIZE = 10
 
   for (let i = 0; i < usersToDelete.length; i += BATCH_SIZE) {
@@ -98,41 +55,85 @@ async function purgeUsersExceptSystem(onProgress = null) {
     results.forEach((result, idx) => {
       if (result.status === 'fulfilled') {
         success++
-        console.log(`🗑️ User supprimé : ${batch[idx].name}`)
       } else {
         failed++
-        console.error(`❌ Erreur suppression user ${batch[idx].name}`)
       }
     })
 
     if (onProgress) {
       onProgress({
         resource: 'User',
-        current : Math.min(i + BATCH_SIZE, usersToDelete.length),
-        total   : usersToDelete.length,
-        success,
-        failed,
+        current: Math.min(i + BATCH_SIZE, usersToDelete.length),
+        total: usersToDelete.length,
+        success, failed,
       })
     }
   }
 
-  return {
-    resource: 'User',
-    total   : usersToDelete.length,
-    success,
-    failed,
-  }
+  return { resource: 'User', total: usersToDelete.length, success, failed }
 }
 
+// =========================================================
+// ⭐ NOUVELLE FONCTION : Nettoyer SQLite local
+// =========================================================
+async function purgeSQLiteLocal(onProgress = null) {
+  console.log('🗑️ Nettoyage de la base SQLite locale...')
+
+  const report = {
+    couts: 0,
+    languages: 0,
+    kanbanSettings: 0,
+    errors: [],
+  }
+
+  // 1. Supprimer tous les coûts
+  try {
+    onProgress?.({ label: '💰 SQLite : Coûts', current: 0, total: 3 })
+    const result = await LocalClient.deleteAllCouts()
+    console.log('✅', result)
+    report.couts = 1
+  } catch (e) {
+    console.warn('⚠️ Erreur suppression coûts :', e.message)
+    report.errors.push('coûts: ' + e.message)
+  }
+
+  // 2. Réinitialiser les kanban settings (supprime + recrée par défaut)
+  try {
+    onProgress?.({ label: '🎨 SQLite : Kanban Settings', current: 1, total: 3 })
+    await LocalClient.resetKanbanSettings()
+    console.log('✅ Kanban settings réinitialisés')
+    report.kanbanSettings = 1
+  } catch (e) {
+    console.warn('⚠️ Erreur reset kanban :', e.message)
+    report.errors.push('kanban: ' + e.message)
+  }
+
+  // 3. ⚠️ ATTENTION : Ne pas supprimer les langues
+  // Les langues sont liées aux kanban_translations (FK)
+  // Le resetKanbanSettings recrée déjà les traductions
+  // → On garde les langues telles quelles
+  console.log('ℹ️ Langues conservées (utilisées par les traductions)')
+
+  onProgress?.({ label: '✅ SQLite : Terminé', current: 3, total: 3 })
+
+  return report
+}
+
+// =========================================================
+// STORE
+// =========================================================
 export const useResetStore = defineStore('reset', () => {
 
   // ---- STATE ----
-  const resources    = ref([])
-  const loading      = ref(false)
-  const processing   = ref(false)
-  const progress     = ref(null)
-  const lastReport   = ref(null)
-  const error        = ref(null)
+  const resources = ref([])
+  const loading = ref(false)
+  const processing = ref(false)
+  const progress = ref(null)
+  const lastReport = ref(null)
+  const error = ref(null)
+
+  // ⭐ AJOUT : option pour activer/désactiver le nettoyage SQLite
+  const cleanSQLite = ref(true)
 
   // ---- GETTERS ----
   const selectedResources = computed(() =>
@@ -158,132 +159,135 @@ export const useResetStore = defineStore('reset', () => {
 
   // ---- ACTIONS ----
 
-  /**
-   * Découvre dynamiquement les ressources via /doc.json
-   * puis charge les counts via l'API v1
-   */
- async function loadResources() {
-  loading.value = true
-  error.value   = null
+  async function loadResources() {
+    loading.value = true
+    error.value = null
 
-  try {
-    // 1. Découverte dynamique via OpenAPI
-    const discovered = await GlpiClient.discoverResources()
+    try {
+      const discovered = await GlpiClient.discoverResources()
+      const usable = discovered.filter(r => !PROTECTED_RESOURCES.has(r.key))
 
-    // 2. Filtrer les ressources protégées
-    const usable = discovered.filter(r => !PROTECTED_RESOURCES.has(r.key))
+      resources.value = usable.map(r => ({
+        key: r.key,
+        label: r.key,
+        category: r.category,
+        count: 0,
+        loading: true,
+        selected: false,
+        available: true,
+      }))
 
-    // 3. Initialiser la liste
-    resources.value = usable.map(r => ({
-      key:       r.key,
-      label:     r.key,
-      category:  r.category,
-      count:     0,
-      loading:   true,
-      selected:  false,
-      available: true,
-    }))
+      const BATCH_SIZE = 5
+      for (let i = 0; i < resources.value.length; i += BATCH_SIZE) {
+        const batch = resources.value.slice(i, i + BATCH_SIZE)
 
-    // 4. Charger les counts par batch de 5
-    const BATCH_SIZE = 5
-    for (let i = 0; i < resources.value.length; i += BATCH_SIZE) {
-      const batch = resources.value.slice(i, i + BATCH_SIZE)
+        await Promise.all(
+          batch.map(async (r) => {
+            try {
+              r.count = await GlpiClient.countItems(r.key)
+              r.available = true
+            } catch (e) {
+              r.count = 0
+              r.available = false
+            } finally {
+              r.loading = false
+            }
+          })
+        )
+      }
 
-      await Promise.all(
-        batch.map(async (r) => {
-          try {
-            r.count     = await GlpiClient.countItems(r.key)
-            r.available = true
-          } catch (e) {
-            // ✅ Silencieux - on marque juste comme non dispo
-            r.count     = 0
-            r.available = false
-          } finally {
-            r.loading = false
-          }
-        })
-      )
+      resources.value = resources.value.filter(r => r.available)
+      console.log(`✅ ${resources.value.length} ressources accessibles chargées`)
+
+    } catch (err) {
+      error.value = err.message || 'Erreur lors de la découverte'
+    } finally {
+      loading.value = false
     }
-
-    // 5. Garder seulement les accessibles
-    resources.value = resources.value.filter(r => r.available)
-
-    console.log(`✅ ${resources.value.length} ressources accessibles chargées`)
-
-  } catch (err) {
-    error.value = err.message || 'Erreur lors de la découverte'
-    console.error('❌ loadResources :', err)
-  } finally {
-    loading.value = false
   }
-}
 
- /**  🚀 RÉINITIALISER TOUT
-   * Supprime TOUTES les ressources disponibles
+  /**
+   * 🚀 RÉINITIALISER TOUT
+   * Supprime TOUTES les ressources GLPI + nettoyage SQLite
    */
   async function purgeAll() {
     processing.value = true
-    progress.value   = null
+    progress.value = null
     lastReport.value = null
-    error.value      = null
+    error.value = null
 
     const details = []
     let totalSuccess = 0
-    let totalFailed  = 0
+    let totalFailed = 0
+    let sqliteReport = null
 
     try {
-      for (const resource of resources.value) {
+      // ═══════════════════════════════════════════
+      // PHASE 1 : Nettoyage SQLite EN PREMIER
+      // ═══════════════════════════════════════════
+      // ⭐ On nettoie SQLite AVANT GLPI pour éviter
+      // les orphelins (coûts liés à des tickets supprimés)
+      if (cleanSQLite.value) {
+        console.log('🗑️ === PHASE 1 : Nettoyage SQLite ===')
 
+        sqliteReport = await purgeSQLiteLocal(
+          (p) => { progress.value = p }
+        )
+
+        console.log('✅ SQLite nettoyé :', sqliteReport)
+      }
+
+      // ═══════════════════════════════════════════
+      // PHASE 2 : Suppression GLPI
+      // ═══════════════════════════════════════════
+      console.log('🗑️ === PHASE 2 : Suppression GLPI ===')
+
+      for (const resource of resources.value) {
         let report
 
-        // Cas spécial pour User
         if (resource.key === 'User') {
           report = await purgeUsersExceptSystem(
             (p) => { progress.value = { ...p, label: '👤 Utilisateurs (sauf système)' } }
           )
         } else {
-          // Cas normal
           report = await GlpiClient.purgeResource(
             resource.key,
             (p) => { progress.value = { ...p, label: resource.label } }
           )
         }
 
-        details.push({
-          ...report,
-          label: resource.label,
-        })
-
+        details.push({ ...report, label: resource.label })
         totalSuccess += report.success
-        totalFailed  += report.failed
+        totalFailed += report.failed
       }
 
-      lastReport.value = { totalSuccess, totalFailed, details }
+      // ═══════════════════════════════════════════
+      // RAPPORT FINAL
+      // ═══════════════════════════════════════════
+      lastReport.value = {
+        totalSuccess,
+        totalFailed,
+        details,
+        sqlite: sqliteReport,  // ⭐ Rapport SQLite
+      }
+
       await loadResources()
 
     } catch (err) {
       error.value = err.message || 'Erreur lors de la réinitialisation'
     } finally {
       processing.value = false
-      progress.value   = null
+      progress.value = null
     }
   }
 
   return {
     // state
-    resources,
-    loading,
-    processing,
-    progress,
-    lastReport,
-    error,
+    resources, loading, processing, progress,
+    lastReport, error, cleanSQLite,
     // getters
-    selectedResources,
-    hasSelection,
-    totalElements,
-    groupedByCategory,
+    selectedResources, hasSelection, totalElements, groupedByCategory,
     // actions
-    loadResources,
-    purgeAll,
+    loadResources, purgeAll,
   }
 })

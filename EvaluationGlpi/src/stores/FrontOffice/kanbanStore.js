@@ -76,37 +76,46 @@ export const useKanbanStore = defineStore('kanban', () => {
   }
 
   async function changeStatus(ticketId, newStatus, extra = {}) {
-    try {
-      await GlpiClient.updateTicketStatus(ticketId, newStatus)
+  try {
+    await GlpiClient.updateTicketStatus(ticketId, newStatus)
 
-      if (extra.userId) {
-        try { await GlpiClient.addTicketActor(ticketId, extra.userId, 2) }
-        catch (e) { console.warn('⚠️ Erreur acteur', e.message) }
-      }
-
-      if (extra.cout) {
-        try { await LocalApi.createTicketSolution(ticketId, extra.cout) }
-        catch (e) { console.warn('⚠️ Erreur solution', e.message) }
-      }
-
-      if (extra.comment) {
-        try { await GlpiClient.addTicketFollowup(ticketId, extra.comment) }
-        catch (e) { console.warn('⚠️ Erreur commentaire', e.message) }
-      }
-      if (extra.pourcentage) {
-        try { await LocalApi.addPourcentage(ticketId, extra.pourcentage) }
-        catch (e) { console.warn('⚠️ Erreur commentaire', e.message) }
-      }
-
-      const ticket = allTickets.value.find(t => t.id === ticketId)
-      if (ticket) ticket.status = newStatus
-
-      return true
-    } catch (err) {
-      error.value = err.message
-      return false
+    if (extra.userId) {
+      try { await GlpiClient.addTicketActor(ticketId, extra.userId, 2) }
+      catch (e) { console.warn('⚠️ Erreur acteur', e.message) }
     }
+
+    // ⭐ Vérifier explicitement avec > 0
+    if (extra.cout && extra.cout > 0) {
+      try { 
+        console.log(`💰 Création SAISI : ${extra.cout}€ pour ticket #${ticketId}`)
+        await LocalApi.createTicketSolution(ticketId, extra.cout) 
+      }
+      catch (e) { console.warn('⚠️ Erreur solution', e.message) }
+    }
+
+    // ⭐ Vérifier explicitement avec > 0
+    if (extra.pourcentage && extra.pourcentage > 0) {
+      try { 
+        console.log(`🔄 Réouverture : ${extra.pourcentage}% pour ticket #${ticketId}`)
+        await LocalApi.addPourcentage(ticketId, extra.pourcentage) 
+      }
+      catch (e) { console.warn('⚠️ Erreur pourcentage', e.message) }
+    }
+
+    if (extra.comment) {
+      try { await GlpiClient.addTicketFollowup(ticketId, extra.comment) }
+      catch (e) { console.warn('⚠️ Erreur commentaire', e.message) }
+    }
+
+    const ticket = allTickets.value.find(t => t.id === ticketId)
+    if (ticket) ticket.status = newStatus
+
+    return true
+  } catch (err) {
+    error.value = err.message
+    return false
   }
+}
 
   async function createSimpleTicket({ name, content, status = 1 }) {
     try {
