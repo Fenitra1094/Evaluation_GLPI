@@ -8,6 +8,8 @@ const localApi = axios.create({
   },
 })
 
+ 
+
 // =========================================================
 //  CLIENT LOCAL (Spring Boot + SQLite)
 // =========================================================
@@ -124,14 +126,42 @@ const LocalClient = {
   },
 
   // Supprimer le dernier coût d'un ticket
-  async deleteCout(ticketId) {
-    await localApi.delete(`/local/cout/ticket/${ticketId}/last`)
+  async AnnulerCout(ticketId) {
+   const response = await localApi.get(`/local/cout/annuler/${ticketId}`)
+   return response.data
   },
 
   async deleteAllCouts() {
     const response = await localApi.delete('/local/cout')
     return response.data
   },
+
+ 
+  
+  async  createItem(data) {
+    
+  
+    try {
+
+      console.log(`📦  Création avec :`, data)
+      const response = await localApi.post(`/local/cout/creer`, data)
+  
+      const created = Array.isArray(response.data) ? response.data[0] : response.data
+     // console.log(`📦 [${resource}] ✅ Créé (id=${created.id})`)
+      return created.id
+  
+    } catch (error) {
+      // const err = extractGlpiError(error)
+      // console.error(`📦 [${resource}] ❌ Erreur création :`, err)
+      // console.error(`📦 [${resource}] Données envoyées :`, data)
+  
+      // // Re-throw avec message clair
+      // throw new Error(
+      //   `${resource} : ${err.code} - ${err.message}`
+      // )
+    }
+  }
+  
 }
 
 export default LocalClient

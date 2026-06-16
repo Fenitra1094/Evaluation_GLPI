@@ -191,7 +191,7 @@ const filteredDetails = computed(() => {
 
 function formatMoney(value) {
   const n = parseFloat(value) || 0
-  return `${n.toFixed(2)} €`
+  return `${n.toFixed(3)} €`
 }
 
 function formatDate(date) {

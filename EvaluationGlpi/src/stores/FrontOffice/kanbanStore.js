@@ -70,7 +70,7 @@ export const useKanbanStore = defineStore('kanban', () => {
   
   async function annulation(ticketId){
     try{
-        await LocalApi.deleteCout(ticketId) 
+        await LocalApi.AnnulerCout(ticketId) 
     }
      catch (e) { console.warn('⚠️ Erreur acteur', e.message) }
   }

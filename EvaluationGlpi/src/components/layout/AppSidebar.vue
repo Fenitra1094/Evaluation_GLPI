@@ -48,6 +48,7 @@ const menuItems = [
   { path: '/admin/reset',      icon: '🗑️', label: 'Réinitialisation' },
   { path: '/admin/kanban-settings',      icon: '🎨', label: 'kanban-settings' },
   { path: '/admin/languages',      icon: '🌍', label: 'languages' },
+   { path: '/admin/import2',      icon: '🌍', label: 'import2' },
 ]
 
 function logout() {

@@ -69,6 +69,20 @@ public class CoutController {
         return ResponseEntity.ok(count + " coûts supprimés");
     }
 
+    @PostMapping("/annuler/{ticketId}")
+    public ResponseEntity<?>AnnulationTicket( @PathVariable Integer ticketId) {
+       Optional<Cout> dernierCout = coutRep.findFirstByTicketOrderByCreatedAtDesc(ticketId);
+        if (dernierCout.isEmpty()) {
+            return ResponseEntity.status(404).body("Aucun coût trouvé pour ticket #" + ticketId);
+        }
+        Double coutAnnuler = dernierCout.get().getCout();
+        Double coutt = - coutAnnuler;
+        Cout Annulation = new Cout(ticketId,coutt , "CANCEL");
+
+        Cout saved = coutRep.save(Annulation);
+        return ResponseEntity.ok(saved);
+    }
+
 
     // ⭐ Réouverture : crée un coût de type REOUVERTURE
     @PostMapping("/reouverture/{ticketId}")

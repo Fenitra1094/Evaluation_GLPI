@@ -1,0 +1,19 @@
+kanban vers terminé de asina dialogue misy cout enregistrer anaty SQLite
+
+page vaovao
+cout efa tao , cout vaovao, total 
+regrouper par items
+mizara raha misy item 2 anatiny tickets  j
+
+
+
+afaka ahemotra ny closed -> in progress 
+    bouton annulation
+        diso nandefa azy tatsy 
+        delete super cout cout nataony saisi farany
+    reoouverture 
+        mameno champ en pourcentage * cout farany
+        cout de reouverture  
+        makany am SQLitea
+        affichena am tableau
+        cat, cost, supercost, frais ouverture

@@ -74,6 +74,12 @@ const router = createRouter({
           meta: { title: 'Personnalisation Kanban' },
         },
         {
+          path: 'import2',
+          name: 'import2',
+          component: () => import('@/views/importVaovao.vue'),
+          meta: { title: 'Personnalisation Kanban' },
+        },
+        {
           path: 'languages',
           name: 'languages',
           component: () => import('@/views/kanbanSetting/LanguageView.vue'),
