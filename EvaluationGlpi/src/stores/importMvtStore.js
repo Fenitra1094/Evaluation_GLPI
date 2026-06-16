@@ -4,7 +4,7 @@ import GlpiClient from '@/api/glpiClient'
 import { useKanbanStore } from './FrontOffice/kanbanStore'    // ⭐ Importer le store kanban
 import { parseCSV, readFileAsText } from '@/utils/csvParser'
 
-const REQUIRED_COLUMNS = ['Ref_Ticket', 'Mvt', 'Valeur']
+const REQUIRED_COLUMNS = ['Ref_Ticket','Mode', 'Mvt', 'Valeur' ]
 
 export const useImportStore = defineStore('import', () => {
 
@@ -83,6 +83,7 @@ export const useImportStore = defineStore('import', () => {
       if (!row.Ref_Ticket) errors.value.push(`Ligne ${line} : Ref_Ticket manquant`)
       if (!row.Mvt)        errors.value.push(`Ligne ${line} : Mvt manquant`)
       if (!row.Valeur)     row.Valeur = 0
+      if(!row.Mode) row.Mode = 0
     })
 
     phase.value = errors.value.length > 0 ? 'error' : 'idle'
@@ -102,6 +103,8 @@ export const useImportStore = defineStore('import', () => {
 
     const valeur = parseFloatFr(row.Valeur)
     const mvt    = row.Mvt?.trim()
+    const mode = Number(row.Mode)
+     addLog('info', `💰 Close : ${mode}€ → ticket #${idTicket}`)
 
     // ⭐ Utiliser les fonctions du kanban store
     switch (mvt) {
@@ -116,7 +119,7 @@ export const useImportStore = defineStore('import', () => {
       case 'Open':
       case 'Reopen':
         addLog('info', `🔄 Reopen : ${valeur}% → ticket #${idTicket}`)
-        return await kanban.createReouverture(idTicket, valeur)
+        return await kanban.createReouverture(idTicket, valeur, mode)
 
       default:
         throw new Error(`Mvt inconnu : "${mvt}"`)

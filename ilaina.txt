@@ -22,7 +22,7 @@ tsy mety
 
 
 
-  Get-ChildItem E:\GitHub\Evaluation_GLPI -Recurse -File | Where-Object {$_.LastWriteTime -gt (Get-Date).AddMinutes(-30)} | Sort-Object LastWriteTime -Descending | Select-Object LastWriteTime, FullName
+  Get-ChildItem E:\GitHub\Evaluation_GLPI -Recurse -File | Where-Object {$_.LastWriteTime -gt (Get-Date).AddMinutes(-90)} | Sort-Object LastWriteTime -Descending | Select-Object LastWriteTime, FullName
 
 
   ny ticket efa closed afaka ahemotra In progress, boite de dialogue mipoitra , misy bouton annulation(midika fa diso izy nandefa), rehefa annulation de fafana le cout nampidirina ,
@@ -41,3 +41,28 @@ csv 3 colonne : ticket, mvt, valeur
 
 rehefa miclicker categorie(ordinateur) , de mipoitra ny item zao ny reopen, cancel, close , cout_fixe zao , 
 
+misy mode de calcul ny ficalculena pourcentage de reouverture 
+mode 1 : le cout farany no alaina
+mode 2: le cout voalohany no alaina,
+mode 3: moyen no alaina (ny cout rehetra hatramzay) 50 100 => 50 + 100/2 = 75 =>10% , 7,5
+mode 4: somme ny cout rehetra 50 + 100 
+
+misy colonne farany mode no anarany (1,2,3,4 ny valeurny )
+
+
+terminer ticket 1 ->50 
+terminer ticket 2 ->150
+
+ouvrir ticket1 50% mode 1  50/10
+terminer ticket1 46
+ouvrir ticket 1 10% mode 4 9,6
+ouvrir ticket 2 10% mode3 150 15
+terminer ticket2 300
+
+
+Ref_Ticket,Mode,Mvt,Valeur
+1,0,Close,0
+1,3,Open,10
+2,4,Open,"7,5"
+2,0,Close,0
+2,3,Open,10

@@ -28,8 +28,8 @@
           <span class="kpi-value">{{ formatMoney(store.totalByType.GLPI) }}</span>
         </div>
         <div class="kpi-card kpi-saisi">
-          <span class="kpi-label">✍️ Saisi</span>
-          <span class="kpi-value">{{ formatMoney(store.totalByType.SAISI) }}</span>
+          <span class="kpi-label">✍️ Saisi (net)</span>
+          <span class="kpi-value">{{ formatMoney(saisiNet) }}</span>
         </div>
         <div class="kpi-card kpi-reouv">
           <span class="kpi-label">🔄 Réouverture</span>
@@ -45,47 +45,70 @@
         </div>
       </div>
 
-      <!-- ===== VUE PAR CATÉGORIE ===== -->
+      <!-- ===== VUE TABLEAU (par catégorie) ===== -->
       <div v-if="!store.selectedCategory">
-        <h2 class="section-title">📂 Cliquez sur une catégorie pour voir le détail</h2>
+        <h2 class="section-title">📊 Récapitulatif par catégorie</h2>
 
         <div v-if="sortedCategories.length === 0" class="info-box">
           <p>📭 Aucun coût trouvé.</p>
         </div>
 
-        <div v-else class="categories-grid">
-          <div
-            v-for="cat in sortedCategories"
-            :key="cat.category"
-            class="category-card"
-            @click="store.selectCategory(cat.category)"
-          >
-            <div class="cat-header">
-              <span class="cat-icon">{{ getIcon(cat.category) }}</span>
-              <span class="cat-name">{{ getLabel(cat.category) }}</span>
-            </div>
-
-            <div class="cat-total">{{ formatMoney(cat.total) }}</div>
-
-            <div class="cat-stats">
-              <span>{{ cat.itemsCount }} item{{ cat.itemsCount > 1 ? 's' : '' }}</span>
-              <span>{{ cat.count }} mouvement{{ cat.count > 1 ? 's' : '' }}</span>
-            </div>
-
-            <div class="cat-breakdown">
-              <span v-if="cat.totalGlpi"        class="bk bk-glpi">  GLPI : {{ formatMoney(cat.totalGlpi) }}</span>
-              <span v-if="cat.totalSaisi"       class="bk bk-saisi"> ✍️ {{ formatMoney(cat.totalSaisi) }}</span>
-              <span v-if="cat.totalReouverture" class="bk bk-reouv"> 🔄 {{ formatMoney(cat.totalReouverture) }}</span>
-              <span v-if="cat.totalCancel"      class="bk bk-cancel">❌ {{ formatMoney(cat.totalCancel) }}</span>
-            </div>
-          </div>
+        <div v-else class="table-wrapper">
+          <table class="costs-table">
+            <thead>
+              <tr>
+                <th>Catégorie</th>
+                <th class="num">Items</th>
+                <th class="num">📊 GLPI</th>
+                <th class="num">✍️ SAISI</th>
+                <th class="num">🔄 REOUVERTURE</th>
+                <th class="num">❌ CANCEL</th>
+                <th class="num total-col">💎 TOTAL</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="cat in sortedCategories"
+                :key="cat.category"
+                class="cat-row"
+                @click="store.selectCategory(cat.category)"
+              >
+                <td class="cat-name-cell">
+                  <span class="cat-icon">{{ getIcon(cat.category) }}</span>
+                  <strong>{{ getLabel(cat.category) }}</strong>
+                </td>
+                <td class="num">{{ cat.itemsCount }}</td>
+                <td class="num glpi">{{ formatMoney(cat.totalGlpi) }}</td>
+                <td class="num saisi">{{ formatMoney(cat.totalSaisi) }}</td>
+                <td class="num reouv">{{ formatMoney(cat.totalReouverture) }}</td>
+                <td class="num cancel">{{ formatMoney(cat.totalCancel) }}</td>
+                <td class="num total-col"><strong>{{ formatMoney(cat.total) }}</strong></td>
+                <td class="action-cell">
+                  <span class="btn-detail">Voir détails →</span>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td><strong>TOTAL GÉNÉRAL</strong></td>
+                <td class="num">{{ totalItems }}</td>
+                <td class="num glpi"><strong>{{ formatMoney(store.totalByType.GLPI) }}</strong></td>
+                <td class="num saisi"><strong>{{ formatMoney(store.totalByType.SAISI) }}</strong></td>
+                <td class="num reouv"><strong>{{ formatMoney(store.totalByType.REOUVERTURE) }}</strong></td>
+                <td class="num cancel"><strong>{{ formatMoney(store.totalByType.CANCEL) }}</strong></td>
+                <td class="num total-col"><strong>{{ formatMoney(store.grandTotal) }}</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 
       <!-- ===== VUE DÉTAILLÉE (items d'une catégorie) ===== -->
       <div v-else>
         <button @click="store.clearSelection()" class="btn-back">
-          ← Retour aux catégories
+          ← Retour au tableau
         </button>
 
         <h2 class="section-title">
@@ -115,7 +138,7 @@
               <thead>
                 <tr>
                   <th>Type</th>
-                  <th>Montant</th>
+                  <th class="num">Montant</th>
                   <th>Date</th>
                 </tr>
               </thead>
@@ -126,7 +149,7 @@
                       {{ getTypeIcon(mvt.type) }} {{ mvt.type }}
                     </span>
                   </td>
-                  <td :class="{ 'negative': mvt.cout < 0 }">
+                  <td class="num" :class="{ 'negative': mvt.cout < 0 }">
                     {{ formatMoney(mvt.cout) }}
                   </td>
                   <td class="date-cell">{{ formatDate(mvt.createdAt) }}</td>
@@ -156,9 +179,20 @@ const sortedCategories = computed(() => {
   return [...store.costsByCategory].sort((a, b) => b.total - a.total)
 })
 
+// ⭐ Saisi NET = Saisi - Cancel (en valeur absolue, vu que cancel est négatif)
+const saisiNet = computed(() => {
+  return store.totalByType.SAISI + store.totalByType.CANCEL
+  // Cancel est déjà négatif dans la base, donc on ADDITIONNE
+})
+
+// Nombre total d'items uniques
+const totalItems = computed(() => {
+  return sortedCategories.value.reduce((sum, c) => sum + c.itemsCount, 0)
+})
+
 function formatMoney(value) {
   const n = parseFloat(value) || 0
-  return `${n.toFixed(3)} €`
+  return `${n.toFixed(2)} €`
 }
 
 function formatDate(date) {
@@ -299,66 +333,112 @@ function getTypeIcon(type) {
   color: #1a1a2e;
 }
 
-/* CATÉGORIES (grille de cartes cliquables) */
-.categories-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-}
-
-.category-card {
+/* ===== TABLEAU PRINCIPAL ===== */
+.table-wrapper {
   background: #fff;
-  padding: 18px;
   border-radius: 12px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.category-card:hover {
-  border-color: #10b981;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-.cat-header {
+.costs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.costs-table thead {
+  background: linear-gradient(135deg, #1e3a8a, #0f172a);
+  color: #fff;
+}
+
+.costs-table thead th {
+  padding: 14px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.costs-table thead th.num { text-align: right; }
+.costs-table thead th.total-col {
+  background: rgba(255,255,255,0.1);
+}
+
+.costs-table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.costs-table tbody tr:hover {
+  background: #f9fafb;
+}
+.costs-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.costs-table td {
+  padding: 14px 12px;
+  font-size: 13px;
+  color: #1a1a2e;
+}
+.costs-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cat-name-cell {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
 }
-.cat-icon { font-size: 28px; }
-.cat-name { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+.cat-icon { font-size: 22px; }
 
-.cat-total {
-  font-size: 28px;
-  font-weight: 800;
+/* Couleurs des colonnes */
+.costs-table td.glpi    { color: #047857; }
+.costs-table td.saisi   { color: #1e40af; }
+.costs-table td.reouv   { color: #6b21a8; }
+.costs-table td.cancel  { color: #dc2626; }
+.costs-table td.total-col {
+  background: #f0fdf4;
+  font-size: 14px;
   color: #047857;
-  margin-bottom: 10px;
 }
 
-.cat-stats {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 10px;
+.action-cell {
+  text-align: right;
 }
-
-.cat-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 11px;
-}
-.bk {
-  padding: 3px 8px;
+.btn-detail {
+  background: #1e3a8a;
+  color: #fff;
+  padding: 5px 12px;
   border-radius: 100px;
+  font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
 }
-.bk-glpi   { background: #d1fae5; color: #065f46; }
-.bk-saisi  { background: #dbeafe; color: #1e40af; }
-.bk-reouv  { background: #f3e8ff; color: #6b21a8; }
-.bk-cancel { background: #fee2e2; color: #991b1b; }
+
+/* Ligne TOTAL en bas */
+.total-row {
+  background: linear-gradient(135deg, #047857, #10b981) !important;
+  color: #fff !important;
+}
+.total-row td {
+  padding: 16px 12px !important;
+  color: #fff !important;
+  font-size: 14px;
+}
+.total-row td.total-col {
+  background: rgba(255,255,255,0.15) !important;
+  color: #fff !important;
+  font-size: 15px;
+}
+.total-row td.glpi,
+.total-row td.saisi,
+.total-row td.reouv,
+.total-row td.cancel {
+  color: #fff !important;
+}
 
 /* DÉTAIL ITEMS */
 .items-list {
@@ -410,11 +490,16 @@ function getTypeIcon(type) {
   text-transform: uppercase;
   font-weight: 700;
 }
+.mouvements-table th.num { text-align: right; }
 
 .mouvements-table td {
   padding: 10px 14px;
   border-bottom: 1px solid #f3f4f6;
   font-size: 13px;
+}
+.mouvements-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .mouvements-table tbody tr:last-child td { border-bottom: none; }
@@ -442,5 +527,6 @@ function getTypeIcon(type) {
 
 @media (max-width: 900px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .table-wrapper { overflow-x: auto; }
 }
 </style>

@@ -122,7 +122,7 @@ async createTicketSolution(ticketId, montant, items, type) {
         ticket    : Number(ticketId),
         cout      : coutParItem,
         type      : type,
-        item      : item.items_name,
+        item      : String(item.items_id),
         category  : item.itemtype,
         createdAt : timestamp,
       }
@@ -137,9 +137,22 @@ async createTicketSolution(ticketId, montant, items, type) {
     throw err
   }
 },
+
   // recuperer le dernier cout
   async getDernierCout(ticketId) {
     const response = await localApi.get(`/local/cout/dernierCout/${ticketId}`)
+    return response.data
+  },
+  async getDebutCout(ticketId) {
+    const response = await localApi.get(`/local/cout/debutCout/${ticketId}`)
+    return response.data
+  },
+  async getMoyenCout(ticketId){
+    const response = await localApi.get(`/local/cout/moyenCout/${ticketId}`)
+    return response.data
+  },
+  async getSommeCout(ticketId){
+    const response = await localApi.get(`/local/cout/sommeCout/${ticketId}`)
     return response.data
   },
 
@@ -150,6 +163,23 @@ async createTicketSolution(ticketId, montant, items, type) {
     })
     return response.data
   },
+  /**
+ * ⭐ Annule (supprime) le dernier SAISI d'un ticket
+ *    Supprime toutes les lignes du même timestamp en bloc
+ */
+async annulerDernierSaisi(ticketId) {
+  try {
+    const response = await localApi.delete(`/local/cout/annulerDernier/${ticketId}`)
+    console.log(
+      `🗑️ Annulation OK : ${response.data.nbSupprimes} ligne(s) supprimée(s), ` +
+      `total ${response.data.totalSupprime}€`
+    )
+    return response.data
+  } catch (err) {
+    console.error('❌ Erreur annulation', err.response?.data || err.message)
+    throw err
+  }
+},
 
   // Récupérer tous les coûts
   async getAllCouts() {

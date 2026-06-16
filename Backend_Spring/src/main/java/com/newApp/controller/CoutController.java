@@ -68,6 +68,94 @@ public class CoutController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/debutCout/{ticketId}")
+    public ResponseEntity<?> getDebutCoutByTicket(@PathVariable Integer ticketId) {
+
+        // 1. Trouver le dernier coût SAISI (n'importe lequel, on veut son timestamp)
+        Optional<Cout> debutCoutOpt = coutRep
+            .findFirstByTicketAndTypeOrderByCreatedAtAsc(ticketId, "SAISI");
+
+        if (debutCoutOpt.isEmpty()) {
+            return ResponseEntity.status(404)
+                .body(Map.of("message", "Aucun coût SAISI trouvé pour ticket #" + ticketId));
+        }
+
+        Cout debutCout = debutCoutOpt.get();
+        LocalDateTime timestamp = debutCout.getCreatedAt();
+
+        // 2. Récupérer TOUS les coûts SAISI du même timestamp pour ce ticket
+        List<Cout> coutsMemeTimestamp = coutRep
+            .findByTicketAndTypeAndCreatedAt(ticketId, "SAISI", timestamp);
+
+        // 3. Calculer la somme
+        Double totalCout = coutsMemeTimestamp.stream()
+            .mapToDouble(Cout::getCout)
+            .sum();
+
+        System.out.println("📊 Dernier SAISI ticket #" + ticketId +
+                        " : " + coutsMemeTimestamp.size() + " ligne(s), total = " + totalCout + "€");
+
+        // 4. Retourner un objet identique au format Cout mais avec le total
+        Map<String, Object> response = new HashMap<>();
+        response.put("id",         debutCout.getId());
+        response.put("ticket",     debutCout.getTicket());
+        response.put("cout",       totalCout);                // ⭐ TOTAL
+        response.put("type",       debutCout.getType());
+        response.put("createdAt",  debutCout.getCreatedAt());
+        response.put("nbLignes",   coutsMemeTimestamp.size());
+
+        return ResponseEntity.ok(response);
+    }
+
+     @GetMapping("/moyenCout/{ticketId}")
+    public Double getMoyenCoutByTicket(@PathVariable Integer ticketId) {
+
+        // 1. Trouver le dernier coût SAISI (n'importe lequel, on veut son timestamp)
+        List<Cout> debutCoutOpt = coutRep
+            .findByTicketAndType(ticketId, "SAISI");
+
+        
+        
+        List<Object> coutsMemeTimestamp = coutRep
+            .findObject(ticketId, "SAISI");
+
+
+        // 3. Calculer la somme
+        Double totalCout = debutCoutOpt.stream()
+            .mapToDouble(Cout::getCout)
+            .sum();
+        
+        Double moyen = totalCout/coutsMemeTimestamp.size();
+
+
+        
+        
+
+        System.out.println("📊 Dernier SAISI ticket #" + ticketId +
+                        " : " + coutsMemeTimestamp.size() + " ligne(s)sssss, total = " + totalCout + ", moyen" +moyen);
+
+        return moyen;
+    }
+
+    @GetMapping("/sommeCout/{ticketId}")
+    public Double getSommeCoutByTicket(@PathVariable Integer ticketId) {
+
+        // 1. Trouver le dernier coût SAISI (n'importe lequel, on veut son timestamp)
+        List<Cout> debutCoutOpt = coutRep
+            .findByTicketAndTypeOrderByCreatedAtDesc(ticketId, "SAISI");
+        
+
+        // 3. Calculer la somme
+        Double totalCout = debutCoutOpt.stream()
+            .mapToDouble(Cout::getCout)
+            .sum(); 
+
+        System.out.println("📊 Dernier SAISI ticket #" + ticketId +
+                        " : " + debutCoutOpt.size() + " ligne(s), total = " + totalCout + "€");
+
+        return totalCout;
+    }
+
 
 
     // // ⭐ Supprimer le DERNIER coût ajouté d'un ticket (le plus récent)
@@ -97,6 +185,53 @@ public class CoutController {
     //         "Coût #" + cout.getId() + " (" + cout.getCout() + "€) supprimé"
     //     );
     // }
+
+    /**
+ * ⭐ Supprime le DERNIER SAISI d'un ticket
+ *    Toutes les lignes du même timestamp sont supprimées en bloc
+ *    Utilisé pour le cas CANCEL (annulation)
+ */
+@DeleteMapping("/annulerDernier/{ticketId}")
+public ResponseEntity<?> annulerDernierSaisi(@PathVariable Integer ticketId) {
+
+    // 1. Trouver le dernier coût SAISI (pour avoir son timestamp)
+    Optional<Cout> dernierCoutOpt = coutRep
+        .findFirstByTicketAndTypeOrderByCreatedAtDesc(ticketId, "SAISI");
+
+    if (dernierCoutOpt.isEmpty()) {
+        return ResponseEntity.status(404)
+            .body(Map.of("message", "Aucun coût SAISI à annuler pour ticket #" + ticketId));
+    }
+
+    Cout dernierCout = dernierCoutOpt.get();
+    LocalDateTime timestamp = dernierCout.getCreatedAt();
+
+    // 2. Récupérer TOUS les coûts SAISI de ce même timestamp (toutes les lignes du batch)
+    List<Cout> coutsASupprimer = coutRep
+        .findByTicketAndTypeAndCreatedAt(ticketId, "SAISI", timestamp);
+
+    // 3. Calculer le total avant suppression (pour le log et le retour)
+    Double totalSupprime = coutsASupprimer.stream()
+        .mapToDouble(Cout::getCout)
+        .sum();
+
+    // 4. Tout supprimer
+    coutRep.deleteAll(coutsASupprimer);
+
+    System.out.println("🗑️ Annulation ticket #" + ticketId +
+                       " : " + coutsASupprimer.size() +
+                       " ligne(s) SAISI supprimée(s) (total: " + totalSupprime + "€)");
+
+    // 5. Retourner le résultat
+    Map<String, Object> response = new HashMap<>();
+    response.put("message",       "Dernier SAISI annulé avec succès");
+    response.put("ticketId",      ticketId);
+    response.put("nbSupprimes",   coutsASupprimer.size());
+    response.put("totalSupprime", totalSupprime);
+    response.put("timestamp",     timestamp);
+
+    return ResponseEntity.ok(response);
+}
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {

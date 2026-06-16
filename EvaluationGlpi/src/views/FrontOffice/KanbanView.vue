@@ -257,7 +257,13 @@
                 Vous réouvrez ce ticket. Vous pouvez ajouter une raison (optionnel).
               </p>
               <div class="field">
-                <label>Raison de la réouverture (optionnel)</label>
+                <select v-model.number="dialog.mode">
+          <option value="1">1 </option>
+          <option value="2">2 - Basse</option>
+          <option value="3">3 - Moyenne</option>
+          <option value="4">4 - Haute</option>
+  
+        </select>
                 <input type="number" v-model.number="dialog.pourcentage">
                   
               </div>
@@ -371,6 +377,7 @@ function openDialog(ticket, oldStatus, newStatus, type, required) {
   dialog.pourcentage = 0         // ⭐ AJOUT
   dialog.solution   = ''
   dialog.comment    = ''
+  dialog.mode = 0
 }
 
 async function annulation() {
@@ -402,8 +409,8 @@ async function confirmTransition() {
       return
     }
     if (dialog.type === 'solution' && (!dialog.cout || dialog.cout <= 0)) {
-      alert('Veuillez saisir le coût')
-      return
+      dialog.cout = 0
+    
     }
   }
 
@@ -415,8 +422,10 @@ async function confirmTransition() {
     extra.cout = Number(dialog.cout)
   }
   
-  if (dialog.type === 'reopen' && dialog.pourcentage > 0) {
+  if (dialog.type === 'reopen' && dialog.pourcentage > 0 ) {
+    console.log('🎯 Type:', dialog.type, '| mode:', dialog.mode)
     extra.pourcentage = Number(dialog.pourcentage)
+    extra.mode = Number(dialog.mode)
   }
   
   if (dialog.comment) extra.comment = dialog.comment

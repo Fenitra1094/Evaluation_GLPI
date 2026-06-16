@@ -16,9 +16,26 @@ public interface CoutRepository extends JpaRepository<Cout, Long> {
     // ⭐ Récupère TOUS les coûts d'un ticket, triés du PLUS RÉCENT au PLUS ANCIEN
     List<Cout> findByTicketOrderByCreatedAtDesc(Integer ticket);
 
+    List<Cout> findByTicketAndTypeOrderByCreatedAtDesc(Integer ticket, String type);
+
+    List<Cout> findByTicketAndType(Integer ticket, String type);
+
+    @Query("""
+
+        SELECT DISTINCT c.createdAt
+        FROM Cout c
+        WHERE c.ticket = :ticket
+          AND c.type = :type
+    """)
+    List<Object> findObject(
+        @Param("ticket") Integer ticket,
+        @Param("type") String type
+    );
+
     // ⭐ Récupère UNIQUEMENT le plus récent (plus optimisé)
     Optional<Cout> findFirstByTicketAndTypeOrderByCreatedAtDesc(Integer ticket, String type);
 
+    Optional<Cout> findFirstByTicketAndTypeOrderByCreatedAtAsc(Integer ticket, String type);
     @Query("""
         SELECT c FROM Cout c
         WHERE c.ticket = :ticket
