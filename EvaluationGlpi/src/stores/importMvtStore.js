@@ -1,57 +1,54 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import LocalApi from '@/api/localClient'
 import GlpiClient from '@/api/glpiClient'
+import { useKanbanStore } from './FrontOffice/kanbanStore'    // ⭐ Importer le store kanban
 import { parseCSV, readFileAsText } from '@/utils/csvParser'
 
-const REQUIRED_COLUMNS = [
-  'Ref_Ticket', 'Mvt', 'Valeur'
-]
-
-const MVT_MAPPING = {
-  'Reopen': 'Open',
-  'Cancel'     : 'Cancel',
-  'Close'     : 'Close',
-}
+const REQUIRED_COLUMNS = ['Ref_Ticket', 'Mvt', 'Valeur']
 
 export const useImportStore = defineStore('import', () => {
 
   // ---- STATE ----
-  const file        = ref(null)
-  const rows        = ref([])
-  const headers     = ref([])
-  const errors      = ref([])
-  const warnings    = ref([])
-  const phase       = ref('idle')
-  const progress    = ref({ current: 0, total: 0, label: '' })
-  const report      = ref(null)
-  const createdIds  = ref([])
-  const debugLogs   = ref([])   // 🆕 logs détaillés
-  const ticketsMap = new Map()
+  const file       = ref(null)
+  const rows       = ref([])
+  const headers    = ref([])
+  const errors     = ref([])
+  const warnings   = ref([])
+  const phase      = ref('idle')
+  const progress   = ref({ current: 0, total: 0, label: '' })
+  const report     = ref(null)
+  const debugLogs  = ref([])
+
+  // ⭐ Référencer le store kanban pour ses fonctions
+  const kanban = useKanbanStore()
+
   // =========================================================
-  // Helper : Ajouter un log
+  // Helpers
   // =========================================================
   function addLog(type, message, data = null) {
     debugLogs.value.push({
-      time   : new Date().toLocaleTimeString(),
-      type,        // 'info' | 'success' | 'error' | 'warning'
-      message,
-      data,
+      time: new Date().toLocaleTimeString(),
+      type, message, data,
     })
+  }
+
+  function parseFloatFr(value) {
+    if (!value) return 0
+    return parseFloat(String(value).replace(',', '.')) || 0
   }
 
   // =========================================================
   // Lire le fichier
   // =========================================================
   async function loadFile(selectedFile) {
-    file.value       = selectedFile
-    rows.value       = []
-    headers.value    = []
-    errors.value     = []
-    warnings.value   = []
-    debugLogs.value  = []
-    report.value     = null
-    phase.value      = 'parsing'
+    file.value      = selectedFile
+    rows.value      = []
+    headers.value   = []
+    errors.value    = []
+    warnings.value  = []
+    debugLogs.value = []
+    report.value    = null
+    phase.value     = 'parsing'
 
     try {
       const text   = await readFileAsText(selectedFile)
@@ -81,190 +78,142 @@ export const useImportStore = defineStore('import', () => {
       errors.value.push(`Colonnes manquantes : ${missingCols.join(', ')}`)
     }
 
-    const seenTicket = new Set()
-    const seenMvt    = new Set()
-    const seenValeur    = new Set()
-
     rows.value.forEach((row) => {
       const line = row._lineNumber
-
-      if (!row.Ref_Ticket)             errors.value.push(`Ligne ${line} : Ref_Ticket manquant`)
+      if (!row.Ref_Ticket) errors.value.push(`Ligne ${line} : Ref_Ticket manquant`)
       if (!row.Mvt)        errors.value.push(`Ligne ${line} : Mvt manquant`)
-      if (!row.Valeur){ row.valeur = 0 }
-
+      if (!row.Valeur)     row.Valeur = 0
     })
 
     phase.value = errors.value.length > 0 ? 'error' : 'idle'
     return errors.value.length === 0
   }
-  function parseFloatFr(value) {
-  if (!value) return 0
-  return parseFloat(String(value).replace(',', '.')) || 0
-}
-
-
 
   // =========================================================
-  // Importer
+  // Traiter une ligne CSV
+  // =========================================================
+  async function processRow(row, ticketMap) {
+    const refTicket = String(row.Ref_Ticket)
+    const idTicket  = ticketMap.get(refTicket)
+
+    if (!idTicket) {
+      throw new Error(`Ticket Ref=${refTicket} non trouvé`)
+    }
+
+    const valeur = parseFloatFr(row.Valeur)
+    const mvt    = row.Mvt?.trim()
+
+    // ⭐ Utiliser les fonctions du kanban store
+    switch (mvt) {
+      case 'Close':
+        addLog('info', `💰 Close : ${valeur}€ → ticket #${idTicket}`)
+        return await kanban.createSaisi(idTicket, valeur)
+
+      case 'Cancel':
+        addLog('info', `🔄 Cancel → ticket #${idTicket}`)
+        return await kanban.createCancel(idTicket)
+
+      case 'Open':
+      case 'Reopen':
+        addLog('info', `🔄 Reopen : ${valeur}% → ticket #${idTicket}`)
+        return await kanban.createReouverture(idTicket, valeur)
+
+      default:
+        throw new Error(`Mvt inconnu : "${mvt}"`)
+    }
+  }
+
+  // =========================================================
+  // Import principal
   // =========================================================
   async function importAll() {
     debugLogs.value = []
-    const allTickets = ref([])
-    let lastErrorr = null
-    
-    const ticketMap = new Map()
 
-
-    const ok = validate()
-    if (!ok) {
+    if (!validate()) {
       phase.value = 'error'
       addLog('error', 'Validation échouée', errors.value)
       return
     }
 
-    phase.value      = 'importing'
-    createdIds.value = []
-    const created    = []
+    phase.value = 'importing'
+    const success = []
+    const failed  = []
 
     addLog('info', `🚀 Début import de ${rows.value.length} lignes`)
 
-    let lastError = null
-    let failedRow = null
-
     try {
-      const total = rows.value.length
-      allTickets.value = await GlpiClient.getTickets({
-        order : 'ASC',
+      // 1. Récupérer tous les tickets pour mapper Ref_Ticket → ID GLPI
+      addLog('info', '📥 Chargement des tickets GLPI...')
+      const allTickets = await GlpiClient.getTickets({ order: 'ASC' })
+
+      const ticketMap = new Map()
+      allTickets.forEach((ticket, index) => {
+        const refTicket = String(index + 1)
+        ticketMap.set(refTicket, ticket.id)
       })
 
-      allTickets.value.forEach((ticket, index) => {
-        const ref_ticket = String(index + 1)
-        ticketMap.set(ref_ticket, ticket.id)
-      })
+      addLog('info', `✅ ${allTickets.length} tickets chargés`)
 
+      // 2. Traiter chaque ligne
       for (let i = 0; i < rows.value.length; i++) {
         const row = rows.value[i]
         progress.value = {
           current: i + 1,
-          total,
-          label  : `Cout ${row.Mvt})`
+          total  : rows.value.length,
+          label  : `${row.Mvt} pour Ref=${row.Ref_Ticket}`,
         }
-       
 
         try {
-          const id = await createOneRow(row, ticketMap)
-          created.push({ id, Ref_Ticket: row.Ref_Ticket, Mvt: row.Mvt, Valeur: row.Valeur })
-          createdIds.value.push({ id })
-          addLog('success', `✅ ${row.Mvt} créé (id=${id})`)
+          await processRow(row, ticketMap)
+          success.push({
+            line: row._lineNumber,
+            mvt: row.Mvt,
+            refTicket: row.Ref_Ticket,
+          })
+          addLog('success', `✅ Ligne ${row._lineNumber} : ${row.Mvt} OK`)
 
         } catch (err) {
-          lastError = err
-          failedRow = row
-          addLog('error', `❌ Échec ${row.Mvt} : ${err.message}`, {
-            row,
-            stack: err.stack,
+          failed.push({
+            line: row._lineNumber,
+            mvt: row.Mvt,
+            refTicket: row.Ref_Ticket,
+            error: err.message,
           })
-          throw err
+          addLog('error', `❌ Ligne ${row._lineNumber} : ${err.message}`)
+          // ⭐ On continue (pas de rollback global, chaque ligne est indépendante)
         }
       }
 
       report.value = {
-        success: created.length,
-        failed : 0,
-        details: created,
+        success: success.length,
+        failed : failed.length,
+        details: { success, failed },
       }
-      phase.value = 'done'
-      addLog('success', `🎉 Import terminé : ${created.length} éléments créés`)
+
+      phase.value = failed.length === 0 ? 'done' : 'partial'
+      addLog('success', `🎉 Import terminé : ${success.length} OK, ${failed.length} échecs`)
 
     } catch (err) {
-      // ROLLBACK
-      addLog('warning', `⚠️ Rollback de ${createdIds.value.length} éléments...`)
-      progress.value = {
-        current: 0,
-        total  : createdIds.value.length,
-        label  : '⚠️ Rollback en cours...'
-      }
-
-      await rollback()
-
+      addLog('error', `❌ Erreur globale : ${err.message}`)
       report.value = {
-        success        : 0,
-        failed         : 1,
-        rollbackDone   : true,
-        errorMessage   : err.message,
-        failedRow,
-        failedLine     : failedRow?._lineNumber,
-        failedName     : failedRow?.Name,
-        details        : [],
+        success: success.length,
+        failed : failed.length + 1,
+        errorMessage: err.message,
       }
       phase.value = 'error'
-      addLog('error', `❌ Import annulé : ${err.message}`)
     }
-  }
-    async function createOneRow(row, ticketMap) {
-        const mvtName = MVT_MAPPING[row.Mvt] || row.Mvt
-        const refTicket = String(row.Ref_Ticket)
-        const idTicket = ticketMap.get(refTicket)
-        const type = ref('')
-        if(row.Mvt === "Open"){
-          type.value = "REOUVERTURE"
-          const val = parseFloatFr(row.Valeur)
-          try{
-              console.log(`🔄 Réouverture : ${val}% pour ticket #${idTicket}`)
-              await LocalApi.addPourcentage(idTicket, val) 
-              return
-            }
-            catch (e) { console.warn('⚠️ Erreur pourcentage', e.message) }
-            
-          
-        } 
-        if(row.Mvt === "Close") type.value = "SAISI"
-        if(row.Mvt === "Cancel") {
-            try{
-              await LocalApi.AnnulerCout(idTicket)
-              return
-            }
-            catch(err){
-              addLog('Error', `Ticket non trouve`)
-
-            }
-        }
-  
-        const itemData = {
-            ticket             : idTicket,
-            cout          : parseFloatFr(row.Valeur) || 0 ,
-            type      : type.value,
-        }
-
-
-        return await LocalApi.createItem(itemData)
-    }
-  // =========================================================
-  // Rollback
-  // =========================================================
-  async function rollback() {
-    for (const item of createdIds.value) {
-      try {
-        await GlpiClient.deleteItem(item.resource, item.id)
-        addLog('info', `🗑️ Supprimé ${item.resource}#${item.id}`)
-      } catch (err) {
-        addLog('error', `Erreur rollback ${item.resource}#${item.id}`)
-      }
-    }
-    createdIds.value = []
   }
 
   function reset() {
-    file.value       = null
-    rows.value       = []
-    headers.value    = []
-    errors.value     = []
-    warnings.value   = []
-    debugLogs.value  = []
-    report.value     = null
-  //  createdIds.value = []
-    phase.value      = 'idle'
-    progress.value   = { current: 0, total: 0, label: '' }
+    file.value      = null
+    rows.value      = []
+    headers.value   = []
+    errors.value    = []
+    warnings.value  = []
+    debugLogs.value = []
+    report.value    = null
+    phase.value     = 'idle'
+    progress.value  = { current: 0, total: 0, label: '' }
   }
 
   return {

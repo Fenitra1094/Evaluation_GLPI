@@ -101,13 +101,45 @@ const LocalClient = {
   // ======================
   // COUTS (SQLite)
   // ======================
+async createTicketSolution(ticketId, montant, items, type) {
+  if (!items || items.length === 0) {
+    throw new Error('Aucun item à traiter')
+  }
 
-  // Créer un coût SAISI (passage à Closed)
-  async createTicketSolution(ticketId, montant) {
-    const response = await localApi.post('/local/cout/creer', {
-      ticket: Number(ticketId),
-      cout: Number(montant)
+  const total = Number(montant)
+  const nbItems = items.length
+  const coutParItem = Number((total / nbItems).toFixed(3))
+
+  const timestamp = new Date().toISOString().replace(/Z$/, '')
+
+  // ⭐ LOG DE DEBUG
+  console.log('🔍 timestamp généré:', timestamp)
+  console.log('🔍 type:', typeof timestamp, 'longueur:', timestamp.length)
+
+  try {
+    const promises = items.map(item => {
+      const payload = {
+        ticket    : Number(ticketId),
+        cout      : coutParItem,
+        type      : type,
+        item      : item.items_name,
+        category  : item.itemtype,
+        createdAt : timestamp,
+      }
+      console.log('🔍 PAYLOAD ENVOYÉ:', JSON.stringify(payload))
+      return localApi.post('/local/cout/creer', payload)
     })
+
+    const responses = await Promise.all(promises)
+    return responses.map(r => r.data)
+  } catch (err) {
+    console.error('❌ Erreur', err.response?.data)
+    throw err
+  }
+},
+  // recuperer le dernier cout
+  async getDernierCout(ticketId) {
+    const response = await localApi.get(`/local/cout/dernierCout/${ticketId}`)
     return response.data
   },
 

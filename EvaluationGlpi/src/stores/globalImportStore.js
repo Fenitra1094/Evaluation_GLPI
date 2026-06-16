@@ -204,6 +204,7 @@ export const useGlobalImportStore = defineStore('globalImport', () => {
 
     // Map Ref_Ticket → ticketId GLPI (pour lier les coûts)
     const ticketsMap = new Map()
+    const itemsMap = new Map()
 
     let lastError  = null
     let failedRow  = null
@@ -274,6 +275,12 @@ export const useGlobalImportStore = defineStore('globalImport', () => {
             // Stocker la correspondance Ref_Ticket → ticketId GLPI
             ticketsMap.set(String(row.Ref_Ticket), result.ticketId)
 
+            // ⭐ NOUVEAU : stocker la liste des items pour ce ticket
+            itemsMap.set(result.ticketId, result.linkedItems.map(item => ({
+              itemtype : item.itemtype,
+              items_id : item.id,
+            })))
+
             createdIds.value.push({ resource: 'Ticket', id: result.ticketId })
             result.linkedItems.forEach(item => {
               createdIds.value.push({ resource: 'Item_Ticket', id: item.linkId })
@@ -306,7 +313,7 @@ export const useGlobalImportStore = defineStore('globalImport', () => {
           addLog('info', `─── [Coûts] Ligne ${row._lineNumber} : Ref=${row.Num_Ticket} ───`)
 
           try {
-            const result = await createTicketCost(row, ticketsMap, addLog)
+            const result = await createTicketCost(row, ticketsMap, itemsMap, addLog)
             createdCosts.push({
               costId   : result.costId,
               refTicket: result.refTicket,

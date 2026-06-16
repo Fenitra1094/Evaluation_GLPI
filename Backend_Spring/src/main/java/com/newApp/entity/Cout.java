@@ -1,5 +1,6 @@
 package com.newApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -17,12 +18,19 @@ public class Cout {
     @Column(nullable = false)
     private Double cout;
 
-    // ⭐ NOUVEAU : type de coût ("SAISI" ou "REOUVERTURE")
     @Column(nullable = false, length = 20)
     private String type = "SAISI";
 
+    // ⭐ Sans @JsonFormat, Spring détecte le format ISO automatiquement
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "item")
+    private String item;
+
+    @Column(name = "category")
+    private String category;
+
 
     // ========== CONSTRUCTEURS ==========
     public Cout() {}
@@ -41,6 +49,16 @@ public class Cout {
         this.createdAt = LocalDateTime.now();
     }
 
+    public Cout(Integer ticket, Double cout, String type, String item, String category) {
+        this.ticket = ticket;
+        this.cout = cout;
+        this.type = type;
+        this.item = item;
+        this.category = category;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // ⭐ Ne génère le timestamp QUE s'il n'a pas été fourni
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -66,4 +84,10 @@ public class Cout {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getItem() { return item; }
+    public void setItem(String item) { this.item = item; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 }

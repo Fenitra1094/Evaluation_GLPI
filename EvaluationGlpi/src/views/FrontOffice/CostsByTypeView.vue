@@ -1,150 +1,140 @@
 <template>
   <div class="costs-view">
 
-    <!-- HEADER -->
+    <!-- ===== HEADER ===== -->
     <header class="page-header">
-      <h1>💰 Détail des Coûts</h1>
-      <div class="header-actions">
-        <button @click="viewMode = 'aggregated'" :class="{ active: viewMode === 'aggregated' }">
-          📊 Vue Agrégée
-        </button>
-        <button @click="viewMode = 'detailed'" :class="{ active: viewMode === 'detailed' }">
-          📋 Vue Détaillée
-        </button>
-        <button @click="store.loadAll()" :disabled="store.loading" class="btn-refresh">
-          🔄 Actualiser
-        </button>
-      </div>
+      <h1>💰 Coûts par Catégorie</h1>
+      <button @click="store.loadAll()" :disabled="store.loading" class="btn-refresh">
+        🔄 Actualiser
+      </button>
     </header>
 
-    <!-- LOADING -->
+    <!-- ===== LOADING ===== -->
     <div v-if="store.loading" class="info-box">
       <p>⏳ {{ store.loadingLabel }}</p>
     </div>
 
-    <!-- ERREUR -->
+    <!-- ===== ERREUR ===== -->
     <div v-else-if="store.error" class="info-box error">
       ❌ {{ store.error }}
     </div>
 
     <template v-else>
 
-      <!-- KPI -->
+      <!-- ===== KPI GLOBAUX ===== -->
       <div class="kpi-grid">
-        <div class="kpi-card">
-          <span class="kpi-label">📊 Total GLPI</span>
-          <span class="kpi-value">{{ formatMoney(store.totalGlpi) }}</span>
+        <div class="kpi-card kpi-glpi">
+          <span class="kpi-label">📊 GLPI</span>
+          <span class="kpi-value">{{ formatMoney(store.totalByType.GLPI) }}</span>
         </div>
-
         <div class="kpi-card kpi-saisi">
-          <span class="kpi-label">✍️ Coût Saisi</span>
-          <span class="kpi-value">{{ formatMoney(store.totalCoutSaisi) }}</span>
+          <span class="kpi-label">✍️ Saisi</span>
+          <span class="kpi-value">{{ formatMoney(store.totalByType.SAISI) }}</span>
         </div>
-
         <div class="kpi-card kpi-reouv">
-          <span class="kpi-label">🔄 Coût Réouverture</span>
-          <span class="kpi-value">{{ formatMoney(store.totalCoutReouverture) }}</span>
+          <span class="kpi-label">🔄 Réouverture</span>
+          <span class="kpi-value">{{ formatMoney(store.totalByType.REOUVERTURE) }}</span>
         </div>
-
+        <div class="kpi-card kpi-cancel">
+          <span class="kpi-label">❌ Cancel</span>
+          <span class="kpi-value">{{ formatMoney(store.totalByType.CANCEL) }}</span>
+        </div>
         <div class="kpi-card highlight">
           <span class="kpi-label">💎 GRAND TOTAL</span>
           <span class="kpi-value">{{ formatMoney(store.grandTotal) }}</span>
         </div>
       </div>
 
-      <!-- ===== VUE AGRÉGÉE ===== -->
-      <div v-if="viewMode === 'aggregated'">
-        <h2 class="section-title">📊 Vue par Type d'Élément</h2>
+      <!-- ===== VUE PAR CATÉGORIE ===== -->
+      <div v-if="!store.selectedCategory">
+        <h2 class="section-title">📂 Cliquez sur une catégorie pour voir le détail</h2>
 
-        <div v-if="sortedTypes.length === 0" class="info-box">
+        <div v-if="sortedCategories.length === 0" class="info-box">
           <p>📭 Aucun coût trouvé.</p>
         </div>
 
-        <table v-else class="costs-table">
-          <thead>
-            <tr>
-              <th>Type d'élément</th>
-              <th>Items</th>
-              <th>Tickets</th>
-              <th>Coût GLPI</th>
-              <th>✍️ Saisi</th>
-              <th>🔄 Réouverture</th>
-              <th>TOTAL</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="type in sortedTypes" :key="type.type">
-              <td>{{ getIcon(type.type) }} <strong>{{ getLabel(type.type) }}</strong></td>
-              <td>{{ type.count }}</td>
-              <td>{{ type.ticketsCount }}</td>
-              <td>{{ formatMoney(type.coutGlpi) }}</td>
-              <td class="cout-saisi">{{ formatMoney(type.coutSaisi) }}</td>
-              <td class="cout-reouv">{{ formatMoney(type.coutReouverture) }}</td>
-              <td><strong>{{ formatMoney(type.total) }}</strong></td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-else class="categories-grid">
+          <div
+            v-for="cat in sortedCategories"
+            :key="cat.category"
+            class="category-card"
+            @click="store.selectCategory(cat.category)"
+          >
+            <div class="cat-header">
+              <span class="cat-icon">{{ getIcon(cat.category) }}</span>
+              <span class="cat-name">{{ getLabel(cat.category) }}</span>
+            </div>
+
+            <div class="cat-total">{{ formatMoney(cat.total) }}</div>
+
+            <div class="cat-stats">
+              <span>{{ cat.itemsCount }} item{{ cat.itemsCount > 1 ? 's' : '' }}</span>
+              <span>{{ cat.count }} mouvement{{ cat.count > 1 ? 's' : '' }}</span>
+            </div>
+
+            <div class="cat-breakdown">
+              <span v-if="cat.totalGlpi"        class="bk bk-glpi">  GLPI : {{ formatMoney(cat.totalGlpi) }}</span>
+              <span v-if="cat.totalSaisi"       class="bk bk-saisi"> ✍️ {{ formatMoney(cat.totalSaisi) }}</span>
+              <span v-if="cat.totalReouverture" class="bk bk-reouv"> 🔄 {{ formatMoney(cat.totalReouverture) }}</span>
+              <span v-if="cat.totalCancel"      class="bk bk-cancel">❌ {{ formatMoney(cat.totalCancel) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- ===== VUE DÉTAILLÉE (avec type de coût) ===== -->
+      <!-- ===== VUE DÉTAILLÉE (items d'une catégorie) ===== -->
       <div v-else>
-        <h2 class="section-title">📋 Liste détaillée des coûts</h2>
+        <button @click="store.clearSelection()" class="btn-back">
+          ← Retour aux catégories
+        </button>
 
-        <!-- FILTRES -->
-        <div class="filters">
-          <input
-            v-model="search"
-            type="text"
-            placeholder="🔍 Rechercher (ticket, item)..."
-            class="search-input"
-          />
+        <h2 class="section-title">
+          {{ getIcon(store.selectedCategory) }} {{ getLabel(store.selectedCategory) }} —
+          Détails des coûts par item
+        </h2>
 
-          <select v-model="filterType">
-            <option value="all">Tous les types</option>
-            <option value="SAISI">✍️ Saisi uniquement</option>
-            <option value="REOUVERTURE">🔄 Réouverture uniquement</option>
-          </select>
+        <div v-if="store.detailsForSelectedCategory.length === 0" class="info-box">
+          <p>📭 Aucun item trouvé pour cette catégorie.</p>
         </div>
 
-        <div v-if="filteredDetails.length === 0" class="info-box">
-          <p>📭 Aucun coût trouvé.</p>
-        </div>
+        <div v-else class="items-list">
+          <div
+            v-for="item in store.detailsForSelectedCategory"
+            :key="item.itemId"
+            class="item-card"
+          >
+            <div class="item-header">
+              <div class="item-info">
+                <strong>{{ item.itemName }}</strong>
+                <small>#{{ item.itemId }}</small>
+              </div>
+              <div class="item-total">{{ formatMoney(item.total) }}</div>
+            </div>
 
-        <table v-else class="costs-table">
-          <thead>
-            <tr>
-              <th>Ticket</th>
-              <th>Type Item</th>
-              <th>Élément</th>
-              <th>Type Coût</th>
-              <th>Montant Total</th>
-              <th>Part (÷ items)</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr 
-              v-for="(detail, i) in filteredDetails" 
-              :key="i"
-              :class="{ 'row-saisi': detail.type === 'SAISI', 'row-reouv': detail.type === 'REOUVERTURE' }"
-            >
-              <td><strong>#{{ detail.ticketId }}</strong></td>
-              <td>{{ getIcon(detail.itemtype) }} {{ getLabel(detail.itemtype) }}</td>
-              <td>{{ detail.itemName }}</td>
-              <td>
-                <span class="type-badge" :class="`badge-${detail.type.toLowerCase()}`">
-                  {{ detail.type === 'SAISI' ? '✍️ Saisi' : '🔄 Réouverture' }}
-                </span>
-              </td>
-              <td>{{ formatMoney(detail.montantTotal) }}</td>
-              <td>
-                <strong>{{ formatMoney(detail.montantParItem) }}</strong>
-                <small>(1/{{ detail.nbItems }})</small>
-              </td>
-              <td>{{ formatDate(detail.createdAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
+            <table class="mouvements-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Montant</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="mvt in item.mouvements" :key="mvt.id">
+                  <td>
+                    <span class="type-badge" :class="`badge-${mvt.type.toLowerCase()}`">
+                      {{ getTypeIcon(mvt.type) }} {{ mvt.type }}
+                    </span>
+                  </td>
+                  <td :class="{ 'negative': mvt.cout < 0 }">
+                    {{ formatMoney(mvt.cout) }}
+                  </td>
+                  <td class="date-cell">{{ formatDate(mvt.createdAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
     </template>
@@ -153,40 +143,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useCostsByTypeStore } from '@/stores/FrontOffice/costsByTypeStore'
 
 const store = useCostsByTypeStore()
-
-const viewMode = ref('aggregated')  // 'aggregated' ou 'detailed'
-const search = ref('')
-const filterType = ref('all')
 
 onMounted(() => {
   store.loadAll()
 })
 
-const sortedTypes = computed(() => {
-  return [...store.costsByType].sort((a, b) => b.total - a.total)
-})
-
-const filteredDetails = computed(() => {
-  let list = [...store.detailedCosts]
-
-  if (filterType.value !== 'all') {
-    list = list.filter(d => d.type === filterType.value)
-  }
-
-  if (search.value) {
-    const s = search.value.toLowerCase()
-    list = list.filter(d =>
-      String(d.ticketId).includes(s) ||
-      d.itemName?.toLowerCase().includes(s) ||
-      d.itemtype?.toLowerCase().includes(s)
-    )
-  }
-
-  return list
+const sortedCategories = computed(() => {
+  return [...store.costsByCategory].sort((a, b) => b.total - a.total)
 })
 
 function formatMoney(value) {
@@ -198,35 +165,45 @@ function formatDate(date) {
   if (!date) return '—'
   return new Date(date).toLocaleString('fr-FR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
+    hour: '2-digit', minute: '2-digit',
   })
 }
 
 function getIcon(itemtype) {
   const icons = {
-    'Computer'        : '💻',
-    'Monitor'         : '🖥️',
-    'Printer'         : '🖨️',
-    'Phone'           : '📞',
-    'NetworkEquipment': '🌐',
-    'Peripheral'      : '⌨️',
-    'Rack'            : '🗄️',
-    'Software'        : '💿',
+    Computer        : '💻',
+    Monitor         : '🖥️',
+    Printer         : '🖨️',
+    Phone           : '📞',
+    NetworkEquipment: '🌐',
+    Peripheral      : '⌨️',
+    Rack            : '🗄️',
+    Software        : '💿',
   }
   return icons[itemtype] || '📦'
 }
 
 function getLabel(itemtype) {
   const labels = {
-    'Computer'        : 'Ordinateurs',
-    'Monitor'         : 'Écrans',
-    'Printer'         : 'Imprimantes',
-    'Phone'           : 'Téléphones',
-    'NetworkEquipment': 'Réseau',
-    'Peripheral'      : 'Périphériques',
-    'Software'        : 'Logiciels',
+    Computer        : 'Ordinateurs',
+    Monitor         : 'Écrans',
+    Printer         : 'Imprimantes',
+    Phone           : 'Téléphones',
+    NetworkEquipment: 'Réseau',
+    Peripheral      : 'Périphériques',
+    Software        : 'Logiciels',
   }
   return labels[itemtype] || itemtype
+}
+
+function getTypeIcon(type) {
+  const icons = {
+    GLPI        : '📊',
+    SAISI       : '✍️',
+    REOUVERTURE : '🔄',
+    CANCEL      : '❌',
+  }
+  return icons[type] || '•'
 }
 </script>
 
@@ -237,6 +214,7 @@ function getLabel(itemtype) {
   margin: 0 auto;
 }
 
+/* HEADER */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -249,41 +227,34 @@ function getLabel(itemtype) {
 }
 .page-header h1 { margin: 0; font-size: 20px; }
 
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.header-actions button {
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.3);
-  padding: 8px 14px;
+.btn-refresh {
+  background: #fff;
+  color: #10b981;
+  border: none;
+  padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 13px;
 }
-.header-actions button.active {
+
+.btn-back {
   background: #fff;
-  color: #10b981;
+  border: 1px solid #d1d5db;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 15px;
 }
-.btn-refresh {
-  background: #fff !important;
-  color: #10b981 !important;
-}
+.btn-back:hover { background: #f3f4f6; }
 
 .info-box {
   background: #fff;
   padding: 30px;
   border-radius: 10px;
   text-align: center;
-  margin-bottom: 20px;
 }
-.info-box.error {
-  background: #fee2e2;
-  color: #991b1b;
-}
+.info-box.error { background: #fee2e2; color: #991b1b; }
 
 .section-title {
   font-size: 16px;
@@ -294,116 +265,180 @@ function getLabel(itemtype) {
 /* KPI */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin-bottom: 20px;
 }
 
 .kpi-card {
   background: #fff;
-  padding: 16px;
+  padding: 14px;
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  border-left: 4px solid #10b981;
+  gap: 4px;
+  border-left: 4px solid #94a3b8;
 }
-.kpi-card.highlight   { background: #d1fae5; }
-.kpi-card.kpi-saisi   { border-left-color: #3b82f6; }
-.kpi-card.kpi-reouv   { border-left-color: #9333ea; }
+.kpi-glpi   { border-left-color: #10b981; }
+.kpi-saisi  { border-left-color: #3b82f6; }
+.kpi-reouv  { border-left-color: #9333ea; }
+.kpi-cancel { border-left-color: #ef4444; }
+.kpi-card.highlight {
+  background: #d1fae5;
+  border-left-color: #047857;
+}
 
 .kpi-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #6b7280;
   font-weight: 600;
 }
 .kpi-value {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: #1a1a2e;
 }
 
-/* FILTRES */
-.filters {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+/* CATÉGORIES (grille de cartes cliquables) */
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
 }
-.search-input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 13px;
-  outline: none;
-}
-.search-input:focus { border-color: #10b981; }
 
-.filters select {
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+.category-card {
   background: #fff;
+  padding: 18px;
+  border-radius: 12px;
+  border: 2px solid transparent;
   cursor: pointer;
-  font-size: 13px;
+  transition: all 0.2s;
+}
+.category-card:hover {
+  border-color: #10b981;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
 
-/* TABLE */
-.costs-table {
-  width: 100%;
+.cat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.cat-icon { font-size: 28px; }
+.cat-name { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+
+.cat-total {
+  font-size: 28px;
+  font-weight: 800;
+  color: #047857;
+  margin-bottom: 10px;
+}
+
+.cat-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.cat-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+}
+.bk {
+  padding: 3px 8px;
+  border-radius: 100px;
+  font-weight: 600;
+}
+.bk-glpi   { background: #d1fae5; color: #065f46; }
+.bk-saisi  { background: #dbeafe; color: #1e40af; }
+.bk-reouv  { background: #f3e8ff; color: #6b21a8; }
+.bk-cancel { background: #fee2e2; color: #991b1b; }
+
+/* DÉTAIL ITEMS */
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.item-card {
   background: #fff;
-  border-collapse: collapse;
   border-radius: 10px;
   overflow: hidden;
+  border: 1px solid #e5e7eb;
 }
 
-.costs-table th {
-  background: #10b981;
-  color: #fff;
-  padding: 12px;
+.item-header {
+  background: #f9fafb;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+}
+.item-info strong { font-size: 15px; color: #1a1a2e; }
+.item-info small { font-size: 11px; color: #9ca3af; }
+
+.item-total {
+  font-size: 20px;
+  font-weight: 700;
+  color: #047857;
+}
+
+.mouvements-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mouvements-table th {
+  background: #f3f4f6;
+  padding: 8px 14px;
   text-align: left;
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.mouvements-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
   font-size: 13px;
 }
 
-.costs-table td {
-  padding: 12px;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 14px;
-}
+.mouvements-table tbody tr:last-child td { border-bottom: none; }
+.mouvements-table tbody tr:hover { background: #f9fafb; }
 
-.costs-table tbody tr:hover { background: #f0fdf4; }
-
-.costs-table td small {
-  display: block;
+.date-cell {
   color: #9ca3af;
-  font-size: 11px;
-  margin-top: 2px;
+  font-size: 12px;
 }
 
-/* COULEURS PAR TYPE */
-.cout-saisi { color: #3b82f6; font-weight: 600; }
-.cout-reouv { color: #9333ea; font-weight: 600; }
+.negative { color: #dc2626; font-weight: 700; }
 
 /* TYPE BADGES */
 .type-badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 100px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
-.badge-saisi {
-  background: #dbeafe;
-  color: #1e40af;
-}
-.badge-reouverture {
-  background: #f3e8ff;
-  color: #6b21a8;
-}
-
-/* COULEURS DE LIGNE */
-.row-saisi { border-left: 4px solid #3b82f6; }
-.row-reouv { border-left: 4px solid #9333ea; }
+.badge-glpi        { background: #d1fae5; color: #065f46; }
+.badge-saisi       { background: #dbeafe; color: #1e40af; }
+.badge-reouverture { background: #f3e8ff; color: #6b21a8; }
+.badge-cancel      { background: #fee2e2; color: #991b1b; }
 
 @media (max-width: 900px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }

@@ -6,207 +6,204 @@ import LocalClient from '@/api/localClient'
 export const useCostsByTypeStore = defineStore('costsByType', () => {
 
   // ============ STATE ============
-  const tickets     = ref([])
-  const ticketItems = ref({})
-  const ticketCosts = ref({})
-  const superCouts  = ref([])
+  const allCouts    = ref([])              // tous les coûts SQLite
+  const itemsCache  = ref({})              // cache { "Computer-3": { name, ... } }
   const loading     = ref(false)
   const loadingLabel = ref('')
   const error       = ref(null)
 
+  // Catégorie sélectionnée pour voir les détails
+  const selectedCategory = ref(null)
+
   // ============ ACTIONS ============
+
+  /**
+   * Charge tous les coûts depuis SQLite
+   */
   async function loadAll() {
     loading.value = true
     error.value = null
-    loadingLabel.value = 'Chargement des tickets...'
+    loadingLabel.value = 'Chargement des coûts...'
 
     try {
-      const allTickets = await GlpiClient.getTickets({
-        start: 0, limit: 500, sort: 'id', order: 'DESC'
-      })
-      tickets.value = allTickets
+      // 1. Charger tous les coûts SQLite
+      allCouts.value = await LocalClient.getAllCouts()
 
-      loadingLabel.value = 'Chargement des superCouts...'
-      superCouts.value = await LocalClient.getAllCouts()
-
-      loadingLabel.value = 'Chargement des items et coûts...'
-      const itemsMap = {}
-      const costsMap = {}
-
-      let count = 0
-      await Promise.all(
-        allTickets.map(async (ticket) => {
-          try {
-            const items = await GlpiClient.getTicketItems(ticket.id)
-            itemsMap[ticket.id] = items
-
-            const costs = await GlpiClient.getTicketCosts(ticket.id)
-            const totalGlpi = costs.reduce((sum, c) => {
-              const time = parseFloat(c.cost_time) || 0
-              const fixed = parseFloat(c.cost_fixed) || 0
-              const material = parseFloat(c.cost_material) || 0
-              const seconds = parseInt(c.actiontime) || 0
-              const timeCost = (seconds / 3600) * time
-              return sum + timeCost + fixed + material
-            }, 0)
-            costsMap[ticket.id] = totalGlpi
-
-            count++
-            loadingLabel.value = `Chargement... (${count}/${allTickets.length})`
-          } catch (e) {
-            console.warn(`⚠️ Ticket #${ticket.id}`, e.message)
-            itemsMap[ticket.id] = []
-            costsMap[ticket.id] = 0
-          }
-        })
-      )
-
-      ticketItems.value = itemsMap
-      ticketCosts.value = costsMap
+      // 2. Charger les noms des items en parallèle
+      loadingLabel.value = 'Chargement des éléments...'
+      await loadItemsDetails()
 
     } catch (err) {
       error.value = err.message
+      console.error('❌ Erreur loadAll', err)
     } finally {
       loading.value = false
       loadingLabel.value = ''
     }
   }
 
+  /**
+   * Charge les noms des items via l'API GLPI
+   */
+  async function loadItemsDetails() {
+    const uniquePairs = new Set()
+    allCouts.value.forEach(c => {
+      if (c.category && c.item) {
+        uniquePairs.add(`${c.category}|${c.item}`)
+      }
+    })
+
+    const promises = []
+    for (const pair of uniquePairs) {
+      const [itemtype, itemId] = pair.split('|')
+      const key = `${itemtype}-${itemId}`
+
+      if (itemsCache.value[key]) continue
+
+      promises.push(
+        GlpiClient.getItemById(itemtype, parseInt(itemId))
+          .then(data => {
+            if (data) {
+              itemsCache.value[key] = {
+                name: data.name || `#${itemId}`,
+                itemtype,
+                id: itemId,
+              }
+            }
+          })
+          .catch(() => {
+            itemsCache.value[key] = { name: `#${itemId}`, itemtype, id: itemId }
+          })
+      )
+    }
+
+    await Promise.all(promises)
+  }
+
   // ============ GETTERS ============
 
   /**
-   * ⭐ LISTE DÉTAILLÉE : chaque coût individuel avec son type
-   * Une ligne par coût × item
+   * Vue AGRÉGÉE par catégorie (Computer, Monitor, etc.)
    */
-  const detailedCosts = computed(() => {
-    const result = []
-
-    superCouts.value.forEach(cout => {
-      const ticketId = cout.ticket
-      const items = ticketItems.value[ticketId] || []
-      const nbItems = items.length
-
-      if (nbItems === 0) return
-
-      // Diviser ce coût par le nombre d'items du ticket
-      const coutParItem = Number(cout.cout) / nbItems
-
-      // Une ligne par item
-      items.forEach(item => {
-        result.push({
-          coutId: cout.id,
-          ticketId: ticketId,
-          ticketName: tickets.value.find(t => t.id === ticketId)?.name || '—',
-          itemtype: item.itemtype,
-          itemName: item.details?.name || `#${item.items_id}`,
-          type: cout.type || 'SAISI',  // SAISI ou REOUVERTURE
-          montantTotal: Number(cout.cout),
-          montantParItem: coutParItem,
-          nbItems: nbItems,
-          createdAt: cout.createdAt,
-        })
-      })
-    })
-
-    // Trier par date DESC (plus récent en premier)
-    return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  })
-
-  /**
-   * Vue AGRÉGÉE par type (Computer, Monitor, etc.)
-   */
-  const costsByType = computed(() => {
+  const costsByCategory = computed(() => {
     const result = {}
 
-    tickets.value.forEach(ticket => {
-      const items = ticketItems.value[ticket.id] || []
-      const totalCoutGlpi = ticketCosts.value[ticket.id] || 0
+    allCouts.value.forEach(cout => {
+      const category = cout.category
+      if (!category) return
 
-      const superCoutsDuTicket = superCouts.value
-        .filter(c => c.ticket === ticket.id)
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-
-      const coutSaisi = superCoutsDuTicket
-        .filter(c => c.type === 'SAISI')
-        .reduce((sum, c) => sum + (Number(c.cout) || 0), 0)
-
-      const coutReouverture = superCoutsDuTicket
-        .filter(c => c.type === 'REOUVERTURE')
-        .reduce((sum, c) => sum + (Number(c.cout) || 0), 0)
-
-      const superCoutTicket = coutSaisi + coutReouverture
-      const nbItems = items.length
-      if (nbItems === 0) return
-
-      const coutGlpiParItem = totalCoutGlpi / nbItems
-      const coutSaisiParItem = coutSaisi / nbItems
-      const coutReouvertureParItem = coutReouverture / nbItems
-      const superCoutParItem = superCoutTicket / nbItems
-
-      items.forEach(item => {
-        const type = item.itemtype
-
-        if (!result[type]) {
-          result[type] = {
-            type,
-            count: 0,
-            coutGlpi: 0,
-            coutSaisi: 0,
-            coutReouverture: 0,
-            superCout: 0,
-            total: 0,
-            tickets: new Set(),
-          }
+      if (!result[category]) {
+        result[category] = {
+          category,
+          total: 0,
+          count: 0,
+          items: new Set(),
+          totalGlpi: 0,
+          totalSaisi: 0,
+          totalReouverture: 0,
+          totalCancel: 0,
         }
+      }
 
-        result[type].count++
-        result[type].coutGlpi += coutGlpiParItem
-        result[type].coutSaisi += coutSaisiParItem
-        result[type].coutReouverture += coutReouvertureParItem
-        result[type].superCout += superCoutParItem
-        result[type].total += (coutGlpiParItem + superCoutParItem)
-        result[type].tickets.add(ticket.id)
-      })
+      const montant = Number(cout.cout) || 0
+
+      result[category].total += montant
+      result[category].count++
+      result[category].items.add(cout.item)
+
+      switch (cout.type) {
+        case 'GLPI':        result[category].totalGlpi        += montant; break
+        case 'SAISI':       result[category].totalSaisi       += montant; break
+        case 'REOUVERTURE': result[category].totalReouverture += montant; break
+        case 'CANCEL':      result[category].totalCancel      += montant; break
+      }
     })
 
     return Object.values(result).map(r => ({
       ...r,
-      ticketsCount: r.tickets.size,
-      tickets: undefined,
+      itemsCount: r.items.size,
+      items: undefined,
     }))
   })
 
+  /**
+   * Détails groupés par ITEM pour une catégorie donnée
+   */
+  const detailsForSelectedCategory = computed(() => {
+    if (!selectedCategory.value) return []
+
+    const coutsCategory = allCouts.value.filter(
+      c => c.category === selectedCategory.value
+    )
+
+    const grouped = {}
+
+    coutsCategory.forEach(cout => {
+      const itemId = cout.item
+      const key = `${cout.category}-${itemId}`
+
+      if (!grouped[itemId]) {
+        grouped[itemId] = {
+          itemId,
+          itemName: itemsCache.value[key]?.name || `#${itemId}`,
+          itemtype: cout.category,
+          total: 0,
+          mouvements: [],
+        }
+      }
+
+      const montant = Number(cout.cout) || 0
+      grouped[itemId].total += montant
+
+      grouped[itemId].mouvements.push({
+        id: cout.id,
+        type: cout.type,
+        cout: montant,
+        createdAt: cout.createdAt,
+      })
+    })
+
+    Object.values(grouped).forEach(item => {
+      item.mouvements.sort((a, b) =>
+        new Date(a.createdAt) - new Date(b.createdAt)
+      )
+    })
+
+    return Object.values(grouped).sort((a, b) => b.total - a.total)
+  })
+
   // ============ TOTAUX ============
+
   const grandTotal = computed(() =>
-    costsByType.value.reduce((sum, t) => sum + t.total, 0)
+    allCouts.value.reduce((sum, c) => sum + (Number(c.cout) || 0), 0)
   )
 
-  const totalGlpi = computed(() =>
-    costsByType.value.reduce((sum, t) => sum + t.coutGlpi, 0)
-  )
+  const totalByType = computed(() => {
+    const result = { GLPI: 0, SAISI: 0, REOUVERTURE: 0, CANCEL: 0 }
+    allCouts.value.forEach(c => {
+      const montant = Number(c.cout) || 0
+      if (result[c.type] !== undefined) {
+        result[c.type] += montant
+      }
+    })
+    return result
+  })
 
-  const totalSuperCout = computed(() =>
-    costsByType.value.reduce((sum, t) => sum + t.superCout, 0)
-  )
+  // ============ ACTIONS UI ============
 
-  const totalCoutSaisi = computed(() =>
-    costsByType.value.reduce((sum, t) => sum + t.coutSaisi, 0)
-  )
+  function selectCategory(category) {
+    selectedCategory.value = category
+  }
 
-  const totalCoutReouverture = computed(() =>
-    costsByType.value.reduce((sum, t) => sum + t.coutReouverture, 0)
-  )
-
-  const totalItems = computed(() =>
-    costsByType.value.reduce((sum, t) => sum + t.count, 0)
-  )
+  function clearSelection() {
+    selectedCategory.value = null
+  }
 
   return {
-    tickets, ticketItems, ticketCosts, superCouts,
-    loading, loadingLabel, error,
-    costsByType, detailedCosts,
-    grandTotal, totalGlpi, totalSuperCout,
-    totalCoutSaisi, totalCoutReouverture, totalItems,
-    loadAll,
+    allCouts, loading, loadingLabel, error,
+    selectedCategory,
+    costsByCategory, detailsForSelectedCategory,
+    grandTotal, totalByType,
+    loadAll, selectCategory, clearSelection,
   }
 })
